@@ -22,17 +22,27 @@ class WidgetServiceProvider extends ServiceProvider
         //
     }
 
+    /**
+     * The installed package version, for display on the plugin page.
+     *
+     * Read from composer's runtime data rather than a hardcoded "version" field in
+     * composer.json. That field is discouraged for VCS-published packages precisely
+     * because it drifts from the git tag -- v1.1.0 shipped while composer.json still
+     * claimed 1.0.1. The git tag is now the single source of truth.
+     */
     private function version(): string
     {
-        $composerFile = __DIR__ . '/../../composer.json';
-
-        if (! is_readable($composerFile)) {
-            return 'unknown';
+        if (class_exists(\Composer\InstalledVersions::class)) {
+            try {
+                return (string) \Composer\InstalledVersions::getPrettyVersion(
+                    'drakelid/librenms-dashboard-widgets'
+                );
+            } catch (\Throwable) {
+                // Not installed via composer (development checkout); fall through.
+            }
         }
 
-        $data = json_decode((string) file_get_contents($composerFile), true);
-
-        return is_array($data) ? ($data['version'] ?? 'unknown') : 'unknown';
+        return 'dev';
     }
 
     /**

@@ -1,7 +1,6 @@
 {
     "name": "drakelid/librenms-dashboard-widgets",
     "description": "LibreNMS plugin bundling six custom dashboard widgets: device group down count, top bandwidth by device group, uplink utilization overview, top device temperatures, flapping devices and recently added devices.",
-    "version": "1.0.1",
     "type": "library",
     "license": "MIT",
     "keywords": [
