@@ -128,14 +128,11 @@ class TopBandwidthDeviceGroupController extends BundleWidgetController
         $settings = $this->getSettings(true);
         $groupIds = DeviceGroups::ids($settings['device_groups'] ?? []);
 
+        // Interface types are not enumerated here on purpose: the form uses core's
+        // ajax/select/port-field source, which looks them up on demand. Building the
+        // list server side meant a DISTINCT over the whole ports table every time
+        // someone opened the settings panel.
         $settings['selected_device_groups'] = DeviceGroups::ordered($request->user(), $groupIds);
-        $settings['interface_types'] = Port::hasAccess($request->user())
-            ->whereNotNull('ifType')
-            ->where('ifType', '!=', '')
-            ->distinct()
-            ->orderBy('ifType')
-            ->limit(500)
-            ->pluck('ifType');
 
         return view('widgets.settings.top-bandwidth-device-group', $settings);
     }

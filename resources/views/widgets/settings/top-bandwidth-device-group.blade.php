@@ -28,11 +28,11 @@
 
     <div class="form-group">
         <label for="interface_filter-{{ $id }}" class="control-label">{{ __('Interface type') }}</label>
-        <select class="form-control" name="interface_filter" id="interface_filter-{{ $id }}">
-            <option value="">{{ __('All ports') }}</option>
-            @foreach($interface_types as $type)
-                <option value="{{ $type }}" @selected($interface_filter === $type)>{{ $type }}</option>
-            @endforeach
+        <select class="form-control" name="interface_filter" id="interface_filter-{{ $id }}"
+                data-placeholder="{{ __('All ports') }}">
+            @if($interface_filter)
+                <option value="{{ $interface_filter }}" selected>{{ $interface_filter }}</option>
+            @endif
         </select>
     </div>
 
@@ -51,4 +51,14 @@
             {{ __('Show utilisation percentage') }}
         </label>
     </div>
+@endsection
+
+@section('javascript')
+    <script type="text/javascript">
+        init_select2('#device_groups-{{ $id }}', 'device-group', {});
+        {{-- Core's port-field source looks up distinct ifType values on demand, so the
+             settings form never runs a DISTINCT over the whole ports table. --}}
+        init_select2('#interface_filter-{{ $id }}', 'port-field',
+            {limit: 100, field: 'ifType'}, '{{ $interface_filter ?: '' }}');
+    </script>
 @endsection

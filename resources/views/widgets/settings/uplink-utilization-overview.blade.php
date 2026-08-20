@@ -74,3 +74,9 @@
         </label>
     </div>
 @endsection
+
+@section('javascript')
+    <script type="text/javascript">
+        init_select2('#device_groups-{{ $id }}', 'device-group', {});
+    </script>
+@endsection

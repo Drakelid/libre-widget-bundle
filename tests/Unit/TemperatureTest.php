@@ -40,10 +40,25 @@ class TemperatureTest extends TestCase
         $this->assertSame(1.0, Temperature::scaleFactor([null, null, null]));
     }
 
-    public function test_multiplier_and_divisor_are_used_when_sane(): void
+    public function test_the_deci_celsius_check_wins_over_multiplier_and_divisor(): void
     {
-        // 500 raw with divisor 10 -> 50 °C
+        // 500 would also scale by the divisor, but 500/10 = 50 is a plausible
+        // temperature, so the deci-Celsius branch takes precedence and returns 0.1.
         $this->assertSame(0.1, Temperature::scaleFactor([500.0], 10, 1));
+    }
+
+    public function test_multiplier_is_used_when_the_deci_check_does_not_apply(): void
+    {
+        // 50 is below the 200 floor, so deci detection does not fire. A multiplier of 2
+        // grows the reading to 100, which is still plausible, so it is accepted.
+        $this->assertSame(2.0, Temperature::scaleFactor([50.0], 1, 2));
+    }
+
+    public function test_a_divisor_cannot_shrink_a_reading_below_the_deci_floor(): void
+    {
+        // The sanity check rejects any factor that shrinks an already-plausible value,
+        // so a divisor only ever applies to readings the deci branch did not claim.
+        $this->assertSame(1.0, Temperature::scaleFactor([150.0], 3, 1));
     }
 
     public function test_a_factor_that_shrinks_a_plausible_reading_is_rejected(): void

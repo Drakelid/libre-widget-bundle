@@ -90,3 +90,9 @@
                id="text_color-{{ $id }}" value="{{ $text_color }}">
     </div>
 @endsection
+
+@section('javascript')
+    <script type="text/javascript">
+        init_select2('#device_groups-{{ $id }}', 'device-group', {});
+    </script>
+@endsection

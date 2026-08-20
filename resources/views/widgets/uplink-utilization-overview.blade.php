@@ -75,7 +75,7 @@
                     @php($port = $row['port'])
                     <tr>
                         <td class="nmsdw-strong">
-                            <x-device-link :device="$port->device" />
+                            @include('widgets.partials.nmsdw-device-cell', ['linkDevice' => $port->device])
                         </td>
                         <td>
                             <x-port-link :port="$port">
@@ -112,7 +112,10 @@
                         @if($show_graphs)
                             <td class="nmsdw-hide-narrow nmsdw-graph">
                                 <x-port-link :port="$port">
-                                    <x-graph :port="$port" type="port_bits" width="150" height="30" legend="no" />
+                                    {{-- :link="false" is required: x-graph otherwise renders its own <a>, --}}
+                                    {{-- which would nest inside x-port-link's anchor. --}}
+                                    <x-graph :port="$port" type="port_bits" :width="150" :height="30"
+                                             legend="no" :link="false" />
                                 </x-port-link>
                             </td>
                         @endif

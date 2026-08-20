@@ -55,14 +55,11 @@
         </select>
         <span class="help-block">{{ __('Leave empty for all accessible devices.') }}</span>
     </div>
+@endsection
 
+@section('javascript')
     <script type="text/javascript">
-        (function () {
-            var selector = '#device_group-{{ $id }}';
-
-            if (typeof init_select2 === 'function') {
-                init_select2(selector, 'nmsdashwidgets-device-groups', {}, null, {allowClear: true});
-            }
-        })();
+        {{-- Same call core's own world-map settings form uses for this field. --}}
+        init_select2('#device_group-{{ $id }}', 'device-group', {});
     </script>
 @endsection

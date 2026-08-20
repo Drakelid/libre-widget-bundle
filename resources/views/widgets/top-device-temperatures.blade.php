@@ -22,7 +22,7 @@
             @php($sensor = $row['sensor'])
             <div class="nmsdw-temp-row nmsdw-temp-{{ $row['status'] }}">
                 <div class="nmsdw-temp-name">
-                    <x-device-link :device="$sensor->device" />
+                    @include('widgets.partials.nmsdw-device-cell', ['linkDevice' => $sensor->device])
                     <span class="nmsdw-sec">{{ $sensor->sensor_descr }}</span>
                 </div>
 

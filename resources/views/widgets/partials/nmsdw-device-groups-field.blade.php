@@ -1,14 +1,18 @@
 {{--
-    Device group multi-select backed by the plugin's own select2 endpoint.
+    Device group multi-select.
 
-    Expects:
-      $id                     widget id (for unique DOM ids)
-      $selected_device_groups Collection of DeviceGroup models, in selection order
-      $help                   help text under the field
-      $placeholder            text shown when nothing is selected
+    Markup only. The select2 initialiser belongs in the settings blade's javascript
+    section, which the base settings template yields after the form -- that is where
+    core's own widget settings forms put theirs.
 
-    Every id is suffixed with the widget id. Two placements of the same widget can
-    appear on one dashboard, and duplicate DOM ids make labels focus the wrong input.
+    Backed by core's ajax/select/device-group endpoint, which already applies
+    authorize('viewAny') and hasAccess(), plus search and pagination. No reason to
+    ship our own.
+
+    Every id is suffixed with the widget id: two placements of the same widget can
+    share a dashboard, and duplicate DOM ids make labels focus the wrong input.
+
+    Expects: $id, $selected_device_groups, $help, optional $placeholder.
 --}}
 <div class="form-group">
     <label for="device_groups-{{ $id }}" class="control-label">{{ __('Device groups') }}</label>
@@ -23,28 +27,3 @@
     </select>
     <span class="help-block">{{ $help }}</span>
 </div>
-
-<script type="text/javascript">
-    (function () {
-        var selector = '#device_groups-{{ $id }}';
-
-        // init_select2 is provided by LibreNMS. Guard so a change in core degrades to a
-        // plain multi-select rather than a JS error that breaks the whole settings form.
-        if (typeof init_select2 === 'function') {
-            init_select2(selector, 'nmsdashwidgets-device-groups', {});
-        } else if (window.jQuery && jQuery.fn.select2) {
-            jQuery(selector).select2({
-                ajax: {
-                    url: '{{ url('ajax/select/nmsdashwidgets-device-groups') }}',
-                    dataType: 'json',
-                    delay: 250,
-                    data: function (params) {
-                        return { term: params.term, page: params.page || 1 };
-                    }
-                },
-                width: '100%',
-                allowClear: true
-            });
-        }
-    })();
-</script>

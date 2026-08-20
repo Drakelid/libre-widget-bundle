@@ -35,11 +35,9 @@ Route::group(['middleware' => ['web', 'auth']], function (): void {
                 });
             });
 
-            // select2 data source for the device group pickers in the settings forms.
-            Route::prefix('ajax/select')->namespace('Select')->group(function (): void {
-                Route::get('nmsdashwidgets-device-groups', 'DeviceGroupsController')
-                    ->name('ajax.select.device-groups');
-            });
+            // No select2 endpoints of our own: the settings forms use core's existing
+            // ajax/select/device-group and ajax/select/port-field sources, which already
+            // apply authorisation, search and pagination.
         });
     });
 });
