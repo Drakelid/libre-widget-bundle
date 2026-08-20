@@ -112,6 +112,81 @@ as_lnms() {
 }
 
 # ---------------------------------------------------------------------------
+# recovery helpers
+#
+# A half-installed plugin is not a harmless no-op. Laravel auto-discovers the
+# package's service provider from composer.json on EVERY request, so a plugin
+# that installs but cannot be loaded takes the entire LibreNMS UI down with a
+# 500. Anything that can fail below must be able to undo itself.
+# ---------------------------------------------------------------------------
+
+composer_bin() {
+    if [ -f "$LNMS_DIR/composer.phar" ]; then
+        echo "php composer.phar"
+    elif command -v composer >/dev/null 2>&1; then
+        echo "composer"
+    else
+        echo ""
+    fi
+}
+
+# Does the framework still boot? Cheap, and it is exactly what a web request needs.
+librenms_boots() {
+    [ "$DRY_RUN" -eq 1 ] && return 0
+    as_lnms php artisan --version >/dev/null 2>&1
+}
+
+rollback() {
+    step "Rolling back"
+    dim "Leaving a partially installed plugin in place would 500 the whole UI,"
+    dim "so it is being removed."
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        dim "skipped in --dry-run"
+        return 0
+    fi
+
+    # 1. Delete the code first. Until it is gone, any attempt to boot Laravel --
+    #    including composer's own post-autoload-dump hook -- can hit the fatal.
+    if [ -d "$LNMS_DIR/vendor/$PACKAGE" ]; then
+        rm -rf "${LNMS_DIR:?}/vendor/${PACKAGE:?}" && ok "removed vendor/$PACKAGE"
+    fi
+
+    # 2. Drop the cached manifest that still names our service provider.
+    rm -f "$LNMS_DIR/bootstrap/cache/packages.php"           "$LNMS_DIR/bootstrap/cache/services.php"           "$LNMS_DIR/bootstrap/cache/routes-v7.php" 2>/dev/null || true
+    ok "cleared the cached package manifest"
+
+    # 3. Take it out of composer.json. --no-scripts keeps composer from invoking
+    #    artisan while the tree is still inconsistent.
+    local cbin
+    cbin="$(composer_bin)"
+    if [ -n "$cbin" ]; then
+        # shellcheck disable=SC2086
+        as_lnms $cbin remove "$PACKAGE" --update-no-dev --no-scripts --no-interaction             >/dev/null 2>&1 && ok "removed from composer.json"             || warn "could not edit composer.json automatically"
+        # shellcheck disable=SC2086
+        as_lnms $cbin dump-autoload --no-scripts --no-interaction >/dev/null 2>&1 || true
+    else
+        warn "composer not found; edit $LNMS_DIR/composer.json by hand if needed"
+    fi
+
+    # 4. Regenerate the manifest and caches now that the tree is clean.
+    as_lnms php artisan package:discover >/dev/null 2>&1 || true
+    as_lnms php artisan route:clear >/dev/null 2>&1 || true
+    as_lnms php artisan view:clear >/dev/null 2>&1 || true
+    as_lnms php artisan cache:clear >/dev/null 2>&1 || true
+
+    if librenms_boots; then
+        ok "LibreNMS boots again"
+    else
+        err "LibreNMS still does not boot. Check storage/logs/laravel.log."
+        dim "Manual recovery:"
+        dim "  rm -rf $LNMS_DIR/vendor/$PACKAGE"
+        dim "  rm -f $LNMS_DIR/bootstrap/cache/packages.php $LNMS_DIR/bootstrap/cache/services.php"
+        dim "  cd $LNMS_DIR && composer remove $PACKAGE --update-no-dev --no-scripts"
+    fi
+}
+
+# ---------------------------------------------------------------------------
 # preflight
 # ---------------------------------------------------------------------------
 
@@ -204,13 +279,29 @@ dim "re-running it updates an already-installed copy."
 if ! as_lnms ./lnms plugin:add "$PACKAGE" "$VERSION"; then
     err "plugin:add failed."
     dim "Common causes:"
+    dim "  - A PHP fatal error in the plugin itself (look for 'PHP Fatal error' above)."
+    dim "    That means a broken plugin release, not a broken server. Report it, or"
+    dim "    pin a known-good version: --version '1.0.0'"
     dim "  - No stable tag published yet. Retry with: --version 'dev-main@dev'"
     dim "  - Composer could not reach packagist.org (proxy or firewall)."
     dim "  - vendor/ contains root-owned files from an earlier 'sudo composer' run."
     dim "    Fix with: chown -R $LNMS_USER:$LNMS_USER $LNMS_DIR/vendor $LNMS_DIR/composer.*"
+    rollback
     exit 1
 fi
 ok "Package installed"
+
+# A package can install cleanly and still be unloadable -- a fatal in the plugin's
+# own code surfaces only once Laravel tries to register its service provider.
+step "Checking that LibreNMS still boots"
+if librenms_boots; then
+    ok "Framework boots with the plugin loaded"
+else
+    err "LibreNMS no longer boots with this plugin installed."
+    dim "This is a broken plugin release, not a broken server."
+    rollback
+    exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # ownership

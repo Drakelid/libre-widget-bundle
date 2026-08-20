@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-08-20
+
+### Fixed
+
+- Plugin installation failed with a PHP fatal error: `MenuEntry` extended
+  `LibreNMS\Interfaces\Plugins\Hooks\MenuEntryHook`, which is an interface, not an
+  abstract class. It now implements it and provides the `authorize()` / `handle()`
+  methods the plugin manager actually calls. The LibreNMS plugin documentation shows an
+  `extends` form with a `data()` method that does not match the shipped
+  `librenms/plugin-interfaces` package.
+
+  Because Laravel auto-discovers the package's service provider on every request,
+  this fatal took the entire LibreNMS UI down with a 500 rather than just failing
+  the install.
+
+### Changed
+
+- `install.sh` now verifies that LibreNMS still boots after installing, and rolls the
+  install back if it does not: the package is removed from `vendor/`, the cached
+  package manifest is dropped and the requirement is taken out of `composer.json`.
+  A failed install can no longer leave the UI broken.
+
 ## [1.0.0] - 2026-08-20
 
 Initial release. Converts six previously hardcoded LibreNMS dashboard widgets into an

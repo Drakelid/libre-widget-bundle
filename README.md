@@ -29,15 +29,35 @@ rename one** — existing dashboard placements reference them by key.
 
 ## Installation
 
+### Scripted (recommended)
+
+[`install.sh`](install.sh) installs or updates the plugin, clears and rebuilds the
+caches, enables the plugin and verifies that all six widget routes registered. Re-run
+the same command to update later.
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/Drakelid/libre-widget-bundle/main/install.sh
+chmod +x install.sh
+sudo ./install.sh
+```
+
+Useful flags: `--dir` (LibreNMS path, default `/opt/librenms`), `--user`, `--version`,
+`--no-enable`, `--uninstall`, `--dry-run`. Run `./install.sh --help` for details.
+
+### Manual
+
 From the LibreNMS base directory, as the `librenms` user:
 
 ```bash
-./lnms plugin:add drakelid/librenms-dashboard-widgets
+./lnms plugin:add drakelid/librenms-dashboard-widgets '^1.0'
 php artisan route:clear
+php artisan view:clear
+./lnms plugin:enable nmsdashwidgets
+php artisan route:cache
 ```
 
-Then enable it under **Overview → Plugins → Plugins Admin**, and add widgets from a
-dashboard via **Add Widget**.
+Then enable it under **Overview → Plugins → Plugins Admin** if the CLI could not, and
+add widgets from a dashboard via **Add Widget**.
 
 > **`php artisan route:clear` is mandatory.** LibreNMS caches routes in production, and
 > widgets are discovered by scanning the route table. A stale route cache is by far the
