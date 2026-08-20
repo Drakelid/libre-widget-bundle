@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         failOnWarning="true"
+         failOnRisky="true">
+    <testsuites>
+        <!--
+            Unit tests only. These cover the Support layer, which is deliberately free
+            of Eloquent and framework facades so it can run without a LibreNMS install.
+            Widget controllers are verified against the live instance; see README.
+        -->
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>src/Support</directory>
+        </include>
+    </source>
+</phpunit>

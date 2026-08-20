@@ -1,0 +1,57 @@
+{
+    "name": "drakelid/librenms-dashboard-widgets",
+    "description": "LibreNMS plugin bundling six custom dashboard widgets: device group down count, top bandwidth by device group, uplink utilization overview, top device temperatures, flapping devices and recently added devices.",
+    "version": "1.0.0",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["librenms", "dashboard", "widget", "monitoring"],
+    "authors": [
+        {
+            "name": "Fredrik Drakelid",
+            "email": "fredrik@drakelid.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": "^8.2",
+        "librenms/plugin-interfaces": "^1.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5 || ^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Drakelid\\NmsDashWidgets\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Drakelid\\NmsDashWidgets\\Tests\\": "tests"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Drakelid\\NmsDashWidgets\\Providers\\WidgetServiceProvider"
+            ]
+        }
+    },
+    "archive": {
+        "exclude": [
+            "tests",
+            "phpunit.xml",
+            ".github",
+            "TESTING.md",
+            "librenms-export",
+            "librenms-export2",
+            "librenms-custom-widget-export.tar.gz",
+            "devicegroupdown",
+            "topbandwith",
+            "uplinkutilization",
+            "upstemp"
+        ]
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

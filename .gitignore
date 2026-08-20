@@ -1,0 +1,98 @@
+# ---------------------------------------------------------------------------
+# Source material — NOT part of the plugin
+#
+# These are the exported copies of the old hardcoded widgets, plus the
+# screenshots used to reverse engineer their layout. They were reference input
+# for building the plugin and contain production hostnames, device group names
+# and dashboard data. Keep them out of the published repository.
+# ---------------------------------------------------------------------------
+
+librenms-export/
+librenms-export2/
+librenms-custom-widget-export.tar.gz
+
+# Widget screenshots (reference only)
+devicegroupdown/
+topbandwith/
+uplinkutilization/
+upstemp/
+
+# ---------------------------------------------------------------------------
+# Images and other binaries
+#
+# Nothing in this plugin needs a binary asset; widget styling is CSS and the
+# icons come from LibreNMS. If you later add screenshots for the README, put
+# them in librenms-dashboard-widgets/docs/screenshots/ and uncomment the
+# negation at the bottom of this section.
+# ---------------------------------------------------------------------------
+
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.webp
+*.ico
+*.svg
+*.psd
+*.pdf
+
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.rar
+*.gz
+
+# Uncomment to allow documentation screenshots:
+# !docs/screenshots/
+# !docs/screenshots/**
+
+# ---------------------------------------------------------------------------
+# Backups and scratch files
+# ---------------------------------------------------------------------------
+
+*.bak
+*.bak.*
+*.orig
+*.rej
+*.old
+*~
+*.swp
+*.swo
+*.tmp
+.before-*
+*.before-*
+
+# ---------------------------------------------------------------------------
+# PHP / Composer
+# ---------------------------------------------------------------------------
+
+vendor/
+composer.lock
+.phpunit.result.cache
+.phpunit.cache/
+.php-cs-fixer.cache
+.phpstan.cache/
+
+# ---------------------------------------------------------------------------
+# Editors and OS noise
+# ---------------------------------------------------------------------------
+
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ---------------------------------------------------------------------------
+# Local environment
+# ---------------------------------------------------------------------------
+
+.env
+.env.*
+!.env.example
+*.log

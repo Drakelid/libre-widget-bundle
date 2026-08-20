@@ -1,0 +1,455 @@
+/*
+ * nmsdashwidgets - shared widget styles
+ *
+ * Every rule is scoped under .nmsdw-widget so nothing leaks into the rest of the
+ * dashboard. Colours are driven by custom properties defined twice: light defaults
+ * on .nmsdw-widget, dark overrides under `.dark`.
+ *
+ * LibreNMS 26.x declares its dark variant as:
+ *     @custom-variant dark (&:where(.dark, .dark *));
+ * i.e. a `.dark` class on an ancestor element. The greys below are taken from
+ * LibreNMS's own --color-dark-* tokens so widgets sit flush with core chrome.
+ */
+
+.nmsdw-widget {
+    --nmsdw-fg: #2e3338;
+    --nmsdw-muted: #6b7280;
+    --nmsdw-border: rgba(0, 0, 0, 0.12);
+    --nmsdw-surface: rgba(0, 0, 0, 0.035);
+    --nmsdw-surface-strong: rgba(0, 0, 0, 0.07);
+    --nmsdw-track: rgba(0, 0, 0, 0.10);
+
+    --nmsdw-ok: #1f8a52;
+    --nmsdw-warn: #b8770f;
+    --nmsdw-crit: #c9302c;
+    --nmsdw-info: #2f6fb5;
+    --nmsdw-unknown: #6b7280;
+
+    color: var(--nmsdw-fg);
+    font-size: 13px;
+    line-height: 1.35;
+    height: 100%;
+}
+
+.dark .nmsdw-widget {
+    --nmsdw-fg: #f9fafb;
+    --nmsdw-muted: #acb6bf;
+    --nmsdw-border: rgba(255, 255, 255, 0.12);
+    --nmsdw-surface: rgba(255, 255, 255, 0.055);
+    --nmsdw-surface-strong: rgba(255, 255, 255, 0.10);
+    --nmsdw-track: rgba(255, 255, 255, 0.14);
+
+    --nmsdw-ok: #4ec27e;
+    --nmsdw-warn: #e0a33a;
+    --nmsdw-crit: #e8615d;
+    --nmsdw-info: #6ba4e8;
+    --nmsdw-unknown: #acb6bf;
+}
+
+/* ---------- primitives ---------- */
+
+.nmsdw-widget .nmsdw-muted {
+    color: var(--nmsdw-muted);
+}
+
+.nmsdw-widget .nmsdw-head {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 2px;
+}
+
+.nmsdw-widget .nmsdw-sub {
+    font-size: 11px;
+    color: var(--nmsdw-muted);
+    margin-bottom: 10px;
+}
+
+.nmsdw-widget code.nmsdw-code {
+    font-size: 11px;
+    padding: 1px 4px;
+    background: var(--nmsdw-surface-strong);
+    color: inherit;
+    border-radius: 3px;
+    word-break: break-all;
+}
+
+.nmsdw-widget .nmsdw-empty {
+    padding: 14px;
+    text-align: center;
+    color: var(--nmsdw-muted);
+    background: var(--nmsdw-surface);
+    border: 1px dashed var(--nmsdw-border);
+    border-radius: 8px;
+}
+
+.nmsdw-widget .nmsdw-note {
+    font-size: 11px;
+    color: var(--nmsdw-muted);
+    margin-top: 8px;
+}
+
+.nmsdw-widget .nmsdw-alert {
+    padding: 6px 9px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    margin-bottom: 8px;
+    border: 1px solid currentColor;
+    background: var(--nmsdw-surface);
+}
+
+.nmsdw-widget .nmsdw-alert-warn {
+    color: var(--nmsdw-warn);
+}
+
+/* ---------- tables ---------- */
+
+.nmsdw-widget .nmsdw-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin: 0;
+}
+
+.nmsdw-widget .nmsdw-table > thead > tr > th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    text-align: left;
+    font-size: 10.5px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--nmsdw-muted);
+    background: var(--nmsdw-surface-strong);
+    border-bottom: 1px solid var(--nmsdw-border);
+    padding: 6px;
+    white-space: nowrap;
+}
+
+.nmsdw-widget .nmsdw-table > tbody > tr > td {
+    padding: 6px;
+    border-top: 1px solid var(--nmsdw-border);
+    vertical-align: middle;
+}
+
+.nmsdw-widget .nmsdw-nowrap {
+    white-space: nowrap;
+}
+
+.nmsdw-widget .nmsdw-strong {
+    font-weight: 700;
+}
+
+.nmsdw-widget .nmsdw-sec {
+    font-size: 10.5px;
+    color: var(--nmsdw-muted);
+    display: block;
+    word-break: break-word;
+}
+
+/* ---------- status pills ---------- */
+
+.nmsdw-widget .nmsdw-pill {
+    display: inline-block;
+    min-width: 44px;
+    text-align: center;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    color: #fff;
+    white-space: nowrap;
+}
+
+.nmsdw-widget .nmsdw-pill-ok { background: var(--nmsdw-ok); }
+.nmsdw-widget .nmsdw-pill-warning { background: var(--nmsdw-warn); }
+.nmsdw-widget .nmsdw-pill-critical { background: var(--nmsdw-crit); }
+.nmsdw-widget .nmsdw-pill-info { background: var(--nmsdw-info); }
+.nmsdw-widget .nmsdw-pill-danger { background: var(--nmsdw-crit); }
+.nmsdw-widget .nmsdw-pill-unknown { background: var(--nmsdw-unknown); }
+
+/* ---------- meters ---------- */
+
+.nmsdw-widget .nmsdw-meter {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--nmsdw-track);
+    overflow: hidden;
+    margin: 3px 0;
+}
+
+.nmsdw-widget .nmsdw-meter-fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--nmsdw-info);
+    transition: width .3s ease;
+}
+
+.nmsdw-widget .nmsdw-meter-ok .nmsdw-meter-fill { background: var(--nmsdw-ok); }
+.nmsdw-widget .nmsdw-meter-warning .nmsdw-meter-fill { background: var(--nmsdw-warn); }
+.nmsdw-widget .nmsdw-meter-critical .nmsdw-meter-fill { background: var(--nmsdw-crit); }
+.nmsdw-widget .nmsdw-meter-unknown .nmsdw-meter-fill { background: var(--nmsdw-unknown); }
+
+/* ---------- stat tiles ---------- */
+
+.nmsdw-widget .nmsdw-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.nmsdw-widget .nmsdw-tile {
+    border: 1px solid var(--nmsdw-border);
+    background: var(--nmsdw-surface);
+    border-radius: 8px;
+    padding: 8px 10px;
+    text-align: center;
+    min-width: 0;
+}
+
+.nmsdw-widget .nmsdw-tile-value {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.1;
+    word-break: break-word;
+}
+
+.nmsdw-widget .nmsdw-tile-label {
+    font-size: 9.5px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--nmsdw-muted);
+    margin-top: 3px;
+}
+
+.nmsdw-widget .nmsdw-tile-counts {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* ---------- status rows (device group down count) ---------- */
+
+.nmsdw-widget .nmsdw-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 14px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    border: 1px solid var(--nmsdw-border);
+}
+
+.nmsdw-widget .nmsdw-banner-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    font-weight: 700;
+    flex: none;
+}
+
+.nmsdw-widget .nmsdw-banner-value {
+    font-size: 40px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.nmsdw-widget .nmsdw-banner-label {
+    font-size: 10.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    opacity: .9;
+}
+
+.nmsdw-widget .nmsdw-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.nmsdw-widget .nmsdw-cards {
+    display: grid;
+    gap: 8px;
+}
+
+.nmsdw-widget .nmsdw-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--nmsdw-border);
+    border-left-width: 4px;
+    background: var(--nmsdw-surface);
+    text-decoration: none;
+    color: inherit;
+}
+
+.nmsdw-widget a.nmsdw-row:hover {
+    background: var(--nmsdw-surface-strong);
+    color: inherit;
+    text-decoration: none;
+}
+
+.nmsdw-widget .nmsdw-row-ok {
+    border-left-color: var(--nmsdw-ok);
+    background: color-mix(in srgb, var(--nmsdw-ok) 10%, transparent);
+}
+
+.nmsdw-widget .nmsdw-row-down {
+    border-left-color: var(--nmsdw-crit);
+    background: color-mix(in srgb, var(--nmsdw-crit) 12%, transparent);
+}
+
+.nmsdw-widget .nmsdw-row-warning {
+    border-left-color: var(--nmsdw-warn);
+    background: color-mix(in srgb, var(--nmsdw-warn) 12%, transparent);
+}
+
+.nmsdw-widget .nmsdw-row-name {
+    font-weight: 700;
+    flex: 1 1 auto;
+    min-width: 0;
+    word-break: break-word;
+}
+
+.nmsdw-widget .nmsdw-row-count {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1;
+    flex: none;
+}
+
+.nmsdw-widget .nmsdw-row-totals {
+    text-align: right;
+    font-size: 10px;
+    color: var(--nmsdw-muted);
+    flex: none;
+    white-space: nowrap;
+}
+
+/* card variant stacks instead of running across */
+.nmsdw-widget .nmsdw-cards .nmsdw-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    border-left-width: 1px;
+    border-top-width: 4px;
+}
+
+.nmsdw-widget .nmsdw-cards .nmsdw-row-totals {
+    text-align: left;
+}
+
+/* ---------- temperature cards ---------- */
+
+.nmsdw-widget .nmsdw-temp-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--nmsdw-border);
+    border-left-width: 4px;
+    background: var(--nmsdw-surface);
+    margin-bottom: 6px;
+}
+
+.nmsdw-widget .nmsdw-temp-ok { border-left-color: var(--nmsdw-ok); }
+.nmsdw-widget .nmsdw-temp-warning { border-left-color: var(--nmsdw-warn); }
+.nmsdw-widget .nmsdw-temp-critical { border-left-color: var(--nmsdw-crit); }
+.nmsdw-widget .nmsdw-temp-unknown { border-left-color: var(--nmsdw-unknown); }
+
+.nmsdw-widget .nmsdw-temp-name {
+    flex: 1 1 40%;
+    min-width: 0;
+    font-weight: 700;
+    word-break: break-word;
+}
+
+.nmsdw-widget .nmsdw-temp-value {
+    font-size: 22px;
+    font-weight: 700;
+    flex: none;
+    white-space: nowrap;
+}
+
+.nmsdw-widget .nmsdw-temp-meter {
+    flex: 1 1 30%;
+    min-width: 70px;
+}
+
+.nmsdw-widget .nmsdw-temp-caption {
+    font-size: 10px;
+    color: var(--nmsdw-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---------- density ---------- */
+
+.nmsdw-widget.nmsdw-compact {
+    font-size: 12px;
+}
+
+.nmsdw-widget.nmsdw-compact .nmsdw-row,
+.nmsdw-widget.nmsdw-compact .nmsdw-temp-row {
+    padding: 6px 9px;
+}
+
+.nmsdw-widget.nmsdw-compact .nmsdw-row-count {
+    font-size: 20px;
+}
+
+.nmsdw-widget.nmsdw-compact .nmsdw-banner {
+    padding: 9px;
+}
+
+.nmsdw-widget.nmsdw-compact .nmsdw-banner-value {
+    font-size: 30px;
+}
+
+.nmsdw-widget.nmsdw-compact .nmsdw-table > tbody > tr > td,
+.nmsdw-widget.nmsdw-compact .nmsdw-table > thead > tr > th {
+    padding: 4px;
+}
+
+/* ---------- responsive ---------- */
+
+.nmsdw-widget .nmsdw-graph img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Shown only when the widget is too narrow for the full table. */
+.nmsdw-widget .nmsdw-show-narrow {
+    display: none;
+}
+
+@container (max-width: 600px) {
+    .nmsdw-widget .nmsdw-hide-narrow {
+        display: none;
+    }
+
+    .nmsdw-widget .nmsdw-show-narrow {
+        display: block;
+    }
+}
+
+/*
+ * Container queries need a container. Where the browser lacks support the columns
+ * simply stay visible, which is a graceful degradation rather than a broken layout.
+ */
+.nmsdw-widget {
+    container-type: inline-size;
+}
