@@ -22,10 +22,26 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
-- `install.sh` now verifies that LibreNMS still boots after installing, and rolls the
-  install back if it does not: the package is removed from `vendor/`, the cached
-  package manifest is dropped and the requirement is taken out of `composer.json`.
-  A failed install can no longer leave the UI broken.
+- The service provider's `boot()` now catches every throwable and logs it instead of
+  letting it escape. Laravel registers this provider on every request, so an
+  unhandled error here is a site-wide outage rather than a missing widget. The plugin
+  now degrades to "widgets absent" instead.
+- `install.sh` verifies that LibreNMS still boots after installing and rolls back if it
+  does not. Rollback now clears all four places a Laravel package registers itself:
+  `composer.json`, `composer.lock`, `vendor/composer/installed.json` and
+  `bootstrap/cache/packages.php`. Clearing only some of them was what turned a failed
+  install into an unbootable application.
+
+### Added
+
+- `tests/load-check.php` -- loads every framework-independent class in a subprocess and
+  asserts its contracts (implements/extends/required methods). Compile-time fatals such
+  as `class X extends <interface>` are invisible to `php -l`; this is the check that
+  would have caught the 1.0.0 outage.
+- `tests/blade-lint.php` -- compiles every Blade template and lints the generated PHP.
+- `.github/workflows/ci.yml` -- runs lint, Blade lint, the load check, PHPUnit and
+  `composer validate` on PHP 8.2 and 8.4, for every push and every tag.
+- `recover.sh` -- restores a LibreNMS server left unbootable by a failed plugin install.
 
 ## [1.0.0] - 2026-08-20
 

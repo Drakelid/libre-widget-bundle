@@ -3,6 +3,7 @@
 namespace Drakelid\NmsDashWidgets\Providers;
 
 use Drakelid\NmsDashWidgets\Hooks\MenuEntry;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use LibreNMS\Interfaces\Plugins\Hooks\MenuEntryHook;
@@ -34,7 +35,41 @@ class WidgetServiceProvider extends ServiceProvider
         return is_array($data) ? ($data['version'] ?? 'unknown') : 'unknown';
     }
 
+    /**
+     * Boot the plugin, and never take LibreNMS down doing it.
+     *
+     * Laravel registers this provider on EVERY request via composer auto-discovery.
+     * Anything that escapes this method becomes a site-wide 500, not a broken widget.
+     * A dashboard plugin failing must degrade to "widgets missing", never to
+     * "LibreNMS unavailable", so every throwable is caught and logged here.
+     *
+     * This cannot catch a fatal raised while COMPILING one of our classes (an invalid
+     * class declaration, for example). That class of bug is caught before release by
+     * the class-load smoke test in tests/load-check.php, which CI runs on every push.
+     */
     public function boot(PluginManagerInterface $pluginManager): void
+    {
+        try {
+            $this->bootPlugin($pluginManager);
+        } catch (\Throwable $e) {
+            $this->reportBootFailure($e);
+        }
+    }
+
+    private function reportBootFailure(\Throwable $e): void
+    {
+        try {
+            Log::error('nmsdashwidgets: plugin failed to boot and was skipped', [
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+                'file' => $e->getFile() . ':' . $e->getLine(),
+            ]);
+        } catch (\Throwable) {
+            // Logging must never be the thing that breaks the request either.
+        }
+    }
+
+    private function bootPlugin(PluginManagerInterface $pluginManager): void
     {
         // Hooks must be published whether or not the plugin is enabled, so the
         // plugin can be discovered and toggled in Plugins Admin.

@@ -4,7 +4,12 @@
     "version": "1.0.1",
     "type": "library",
     "license": "MIT",
-    "keywords": ["librenms", "dashboard", "widget", "monitoring"],
+    "keywords": [
+        "librenms",
+        "dashboard",
+        "widget",
+        "monitoring"
+    ],
     "authors": [
         {
             "name": "Fredrik Drakelid",
@@ -17,7 +22,10 @@
         "librenms/plugin-interfaces": "^1.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^10.5 || ^11.0"
+        "phpunit/phpunit": "^10.5 || ^11.0",
+        "illuminate/support": "^11.0 || ^12.0",
+        "illuminate/contracts": "^11.0 || ^12.0",
+        "illuminate/view": "^11.0 || ^12.0"
     },
     "autoload": {
         "psr-4": {
@@ -38,14 +46,14 @@
     },
     "archive": {
         "exclude": [
-            "tests",
-            "phpunit.xml",
             ".github",
             "TESTING.md",
+            "devicegroupdown",
+            "librenms-custom-widget-export.tar.gz",
             "librenms-export",
             "librenms-export2",
-            "librenms-custom-widget-export.tar.gz",
-            "devicegroupdown",
+            "phpunit.xml",
+            "tests",
             "topbandwith",
             "uplinkutilization",
             "upstemp"
@@ -53,5 +61,12 @@
     },
     "config": {
         "sort-packages": true
+    },
+    "scripts": {
+        "test": [
+            "@php tests/load-check.php",
+            "@php tests/blade-lint.php",
+            "@php vendor/bin/phpunit"
+        ]
     }
 }

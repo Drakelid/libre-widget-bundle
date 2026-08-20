@@ -1,0 +1,56 @@
+name: CI
+
+# Every push and every tag. A tag that fails here must never reach Packagist:
+# a broken release of this package does not break a widget, it breaks LibreNMS.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.4']
+
+    name: PHP ${{ matrix.php }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Lint every PHP file
+        run: |
+          set -e
+          find src routes database tests -name '*.php' -print0 \
+            | xargs -0 -n1 -P4 php -l > /dev/null
+          echo "syntax OK"
+
+      - name: Lint every Blade template
+        # Blade compiles to PHP; a broken template is a 500 in the widget body.
+        run: php tests/blade-lint.php
+
+      - name: Class-load smoke test
+        # Catches compile-time fatals that php -l cannot see, such as a class
+        # declared to extend an interface. This is the check that would have
+        # caught the 1.0.0 outage.
+        run: php tests/load-check.php
+
+      - name: Unit tests
+        run: vendor/bin/phpunit --colors=never
+
+      - name: Validate composer.json
+        run: composer validate --strict --no-check-publish

@@ -150,6 +150,22 @@ Carried over deliberately from the original widgets:
   its inputs use unique DOM ids so two copies can coexist on one dashboard.
 - Widget CSS is shared and injected once per page rather than inlined per widget.
 
+## If a LibreNMS install goes wrong
+
+[`recover.sh`](recover.sh) restores a server left unbootable by a failed plugin
+install (symptom: every page shows "Whoops, looks like something went wrong", and
+`storage/logs/laravel.log` reports a missing or uncompilable class from this package).
+
+```bash
+sudo bash recover.sh
+```
+
+A Laravel package registers itself in **four** places -- `composer.json`,
+`composer.lock`, `vendor/composer/installed.json` and `bootstrap/cache/packages.php`.
+Removing it from some but not all leaves Laravel loading a provider class that no
+longer exists, which fails every request. `recover.sh` clears all four, and falls back
+to installing a no-op placeholder provider if anything is still wrong.
+
 ## Development
 
 The `Support/` layer is free of Eloquent and framework facades so it can be tested
@@ -157,8 +173,26 @@ without a LibreNMS install:
 
 ```bash
 composer install
-vendor/bin/phpunit
+composer test          # load check + Blade lint + unit tests
 ```
+
+Three gates run in CI on every push and tag, on PHP 8.2 and 8.4:
+
+| Check | Catches |
+|---|---|
+| `php -l` | syntax errors |
+| `tests/blade-lint.php` | templates that compile to invalid PHP |
+| `tests/load-check.php` | compile-time fatals and broken class contracts |
+| `vendor/bin/phpunit` | logic regressions in the `Support/` layer |
+
+`tests/load-check.php` exists because of a real outage: 1.0.0 declared a hook class as
+`extends` on an interface. That is a compile-time fatal, so `php -l` passed it happily,
+and because Laravel loads this package's service provider on every request it took the
+whole LibreNMS UI down. Loading each class in a subprocess is the only way to catch
+that before release.
+
+**Never tag a release that has not passed CI.** A broken release of this package does
+not break a widget; it breaks LibreNMS.
 
 Widget controllers and views need a real LibreNMS instance; see [`TESTING.md`](TESTING.md)
 for the manual acceptance checklist.

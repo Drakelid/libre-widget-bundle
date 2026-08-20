@@ -169,7 +169,35 @@ rollback() {
         warn "composer not found; edit $LNMS_DIR/composer.json by hand if needed"
     fi
 
-    # 4. Regenerate the manifest and caches now that the tree is clean.
+    # 4. composer remove does NOT touch vendor/composer/installed.json when the
+    #    package is absent from composer.json -- it reports "not required ... has not
+    #    been removed" and leaves the stale entry behind. Laravel's PackageManifest
+    #    reads installed.json to auto-discover providers, so that leftover is enough
+    #    on its own to 500 every request. Strip it explicitly.
+    if command -v python3 >/dev/null 2>&1; then
+        python3 - "$LNMS_DIR" "$PACKAGE" <<'PYEOF' || warn "could not clean installed.json"
+import json, os, sys
+base, pkg = sys.argv[1], sys.argv[2]
+path = os.path.join(base, 'vendor', 'composer', 'installed.json')
+if os.path.isfile(path):
+    try:
+        data = json.load(open(path, encoding='utf-8'))
+        wrapped = isinstance(data, dict) and 'packages' in data
+        items = data['packages'] if wrapped else data
+        kept = [p for p in items if p.get('name') != pkg]
+        if len(kept) != len(items):
+            if wrapped:
+                data['packages'] = kept
+            else:
+                data = kept
+            json.dump(data, open(path, 'w', encoding='utf-8'), indent=4)
+            print('  [ ok ] removed %s from installed.json' % pkg)
+    except Exception as exc:
+        print('  [warn] installed.json: %s' % exc)
+PYEOF
+    fi
+
+    # 5. Regenerate the manifest and caches now that the tree is clean.
     as_lnms php artisan package:discover >/dev/null 2>&1 || true
     as_lnms php artisan route:clear >/dev/null 2>&1 || true
     as_lnms php artisan view:clear >/dev/null 2>&1 || true
