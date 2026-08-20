@@ -204,6 +204,9 @@ Further reading:
   the original hardcoded widgets.
 - [`docs/RETIRE-GROUP-WORLD-MAP.md`](docs/RETIRE-GROUP-WORLD-MAP.md) — migrating the
   retired map widget.
+- [`docs/future-spec.md`](docs/future-spec.md) — gap analysis for an ISP: candidate
+  widgets for optical light levels, BGP session health and site power, with data
+  sources verified against the LibreNMS schema.
 
 ## Licence
 
