@@ -5,6 +5,46 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1] - 2026-08-21
+
+### Fixed
+
+- **Map layer selection appeared broken: only the default worked.** It was not broken --
+  the layers simply do not exist on a stock install, and the widget offered them anyway.
+
+  `init_map()` in `html/js/librenms.js` builds a Leaflet layer control only for the
+  `google`, `bing`, `mapquest` and `esri` engines. With no `geoloc.engine` configured it
+  falls through to a single OpenStreetMap tile layer and ignores `config.layer`
+  completely. Google, Bing and MapQuest also need `geoloc.api_key`; without one they hit
+  the same fallback.
+
+  The settings form now offers only the layers the configured engine can actually
+  provide. Where there is no choice it shows a disabled control reading "OpenStreetMap
+  (the only layer available)" and explains how to enable the others. The stored value is
+  preserved either way, so setting an engine later brings the choice back.
+
+### Added
+
+- `Support/MapLayers.php` mirrors the engine branches in `init_map()`:
+
+  | engine | API key | layers |
+  |---|---|---|
+  | none (default) | - | none: single OpenStreetMap layer |
+  | esri | not required | Streets, Topography, Satellite |
+  | google / bing / mapquest | required | Streets, Satellite |
+  | google / bing / mapquest | missing | none: falls back to OpenStreetMap |
+
+### Notes
+
+- Core's own World Map settings form has the same issue: it offers all three layers
+  regardless of engine. Nothing in core was changed.
+- Esri is the cheapest way to get layer choice: it needs no API key.
+- The setting is at **Settings -> External -> Location Settings**
+  (`/settings/external/location`), shown as **Mapping Engine**. An earlier note in
+  this file gave the wrong path. Note that selecting "OpenStreetMap" there still
+  yields a single layer: `init_map()` has no branch for it and uses the same
+  fallback as leaving the setting unset.
+
 ## [1.9.0] - 2026-08-21
 
 ### Added

@@ -60,12 +60,43 @@
 
     <div class="form-group">
         <label for="init_layer-{{ $id }}" class="control-label">{{ __('Map layer') }}</label>
-        <select class="form-control" name="init_layer" id="init_layer-{{ $id }}">
-            <option value="" @selected(! $init_layer)>{{ __('LibreNMS default') }}</option>
-            <option value="Streets" @selected($init_layer === 'Streets')>{{ __('Streets') }}</option>
-            <option value="Satellite" @selected($init_layer === 'Satellite')>{{ __('Satellite') }}</option>
-            <option value="Topography" @selected($init_layer === 'Topography')>{{ __('Topography') }}</option>
-        </select>
+
+        @if(empty($available_layers))
+            {{-- init_map() only builds a layer control for the google, bing, mapquest or
+                 esri engines. With none configured it adds a single OpenStreetMap layer
+                 and ignores config.layer entirely, so offering choices here would be a
+                 lie -- which is exactly how this setting came to look broken. --}}
+            <select class="form-control" disabled>
+                <option>{{ __('OpenStreetMap (the only layer available)') }}</option>
+            </select>
+            <input type="hidden" name="init_layer" value="{{ $init_layer }}">
+            <span class="help-block">
+                {{ __('This installation uses the built-in OpenStreetMap tiles, which provide a single layer, so there is nothing to choose between.') }}
+                <br>
+                {{ __('To enable Streets, Satellite and Topography, set the Mapping Engine to ESRI ArcGIS. It needs no API key.') }}
+                @can('admin')
+                    <br>
+                    <a href="{{ url('settings/external/location') }}" target="_blank" rel="noopener">{{ __('Open Location Settings') }}</a>
+                    {{ __('or run on the LibreNMS server:') }}
+                @else
+                    <br>
+                    {{ __('An administrator can set this, on the LibreNMS server:') }}
+                @endcan
+                <code>lnms config:set geoloc.engine esri</code>
+                <br>
+                {{ __('Google Maps, Bing Maps and MapQuest also work but each need an API key. Selecting OpenStreetMap leaves a single layer, the same as leaving the engine unset.') }}
+            </span>
+        @else
+            <select class="form-control" name="init_layer" id="init_layer-{{ $id }}">
+                <option value="" @selected(! $init_layer)>{{ __('LibreNMS default') }}</option>
+                @foreach($available_layers as $available)
+                    <option value="{{ $available }}" @selected($init_layer === $available)>{{ __($available) }}</option>
+                @endforeach
+            </select>
+            <span class="help-block">
+                {{ __('Layers offered by the :engine engine configured for this installation.', ['engine' => $map_engine]) }}
+            </span>
+        @endif
     </div>
 
     <div class="checkbox">

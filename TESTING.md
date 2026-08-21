@@ -283,6 +283,12 @@ Every widget exposes the same controls. Spot-check three widgets rather than all
 - [ ] Panning then waiting for a refresh does not reset the view.
 - [ ] A restricted user sees only devices they may access.
 - [ ] Blank latitude/longitude/zoom/layer fall back to the LibreNMS defaults.
+- [ ] **Map layer** control reflects the configured engine. With no geoloc.engine set
+      it is disabled and reads "OpenStreetMap (the only layer available)".
+- [ ] Setting geoloc.engine to esri (no API key needed) makes Streets, Topography and
+      Satellite selectable, and switching between them visibly changes the tiles.
+- [ ] A layer chosen before the engine was configured is still stored and becomes
+      active once an engine is set.
 
 ### Gate 7 - resilience
 

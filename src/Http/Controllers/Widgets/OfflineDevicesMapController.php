@@ -6,6 +6,7 @@ use App\Facades\LibrenmsConfig;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
+use Drakelid\NmsDashWidgets\Support\MapLayers;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -101,6 +102,12 @@ class OfflineDevicesMapController extends BundleWidgetController
         $settings = $this->getSettings(true);
         $groupIds = DeviceGroups::ids($settings['device_groups'] ?? []);
         $settings['selected_device_groups'] = DeviceGroups::ordered($request->user(), $groupIds);
+
+        // Layer choice depends on the configured mapping engine, not on this widget.
+        // Offering options the installation cannot honour is how the layer setting came
+        // to look broken.
+        $settings['available_layers'] = MapLayers::available();
+        $settings['map_engine'] = MapLayers::engine();
 
         return view('widgets.settings.offline-devices-map', $settings);
     }
