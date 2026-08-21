@@ -36,6 +36,8 @@ class DeviceGroupDownCountController extends BundleWidgetController
 
     protected $defaults = [
         'title' => null,
+        // Overrides the heading inside the widget body; the top title bar is `title`.
+        'heading' => null,
         'refresh' => 60,
         'device_groups' => [],
         'background_color' => '#d9534f',
@@ -58,6 +60,7 @@ class DeviceGroupDownCountController extends BundleWidgetController
     protected function normalizeSettings(array $settings): array
     {
         $settings['title'] = Cast::nullableString($settings['title'] ?? null);
+        $settings['heading'] = Cast::nullableString($settings['heading'] ?? null);
         $settings['device_groups'] = DeviceGroups::ids($settings['device_groups'] ?? []);
         $settings['background_color'] = Cast::color($settings['background_color'] ?? null, '#d9534f');
         $settings['text_color'] = Cast::color($settings['text_color'] ?? null, '#ffffff');
@@ -186,6 +189,7 @@ class DeviceGroupDownCountController extends BundleWidgetController
             'show_group_totals' => Cast::bool($settings['show_group_totals'] ?? true, true),
             'exclude_ignored_disabled' => Cast::bool($settings['exclude_ignored_disabled'] ?? true, true),
             'sort' => Cast::choice($settings['sort'] ?? 'selection', self::SORTS, 'selection'),
+            'heading' => Cast::nullableString($settings['heading'] ?? null),
             'accent' => Cast::choice($settings['accent'] ?? null, Presentation::ACCENTS, 'default'),
             'zebra' => Cast::bool($settings['zebra'] ?? false, false),
             'hide_healthy' => Cast::bool($settings['hide_healthy'] ?? false, false),

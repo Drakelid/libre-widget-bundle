@@ -34,7 +34,7 @@
         @if($show_header)
             <div class="nmsdw-dgdc-header">
                 <div>
-                    <div class="nmsdw-head">{{ __('Device group status') }}</div>
+                    <div class="nmsdw-head">{{ $heading ?: __('Device group status') }}</div>
                     <div class="nmsdw-sub">
                         {{ __(':count groups', ['count' => $group_count]) }}
                         &middot;

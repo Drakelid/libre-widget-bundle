@@ -5,6 +5,7 @@
         <label for="title-{{ $id }}" class="control-label">{{ __('Widget title') }}</label>
         <input type="text" class="form-control" name="title" id="title-{{ $id }}"
                placeholder="{{ __('Site Power and Battery') }}" value="{{ $title }}">
+        <span class="help-block">{{ __('Sets the bar along the top of the widget.') }}</span>
     </div>
 
     @include('widgets.partials.nmsdw-device-groups-field', [
@@ -84,6 +85,7 @@
     @include('widgets.partials.nmsdw-presentation-fields', [
         'id' => $id,
         'layouts' => $layouts,
+        'heading' => $heading,
         'layout' => $layout,
         'density' => $density,
         'accent' => $accent,

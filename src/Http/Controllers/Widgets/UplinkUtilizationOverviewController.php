@@ -5,6 +5,7 @@ namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 use App\Models\Port;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
+use Drakelid\NmsDashWidgets\Support\Columns;
 use Drakelid\NmsDashWidgets\Support\Presentation;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
 use Drakelid\NmsDashWidgets\Support\Format;
@@ -46,6 +47,10 @@ class UplinkUtilizationOverviewController extends BundleWidgetController
         'show_graphs' => 1,
         'show_device_group' => 1,
 
+        // Visible columns. null means "never configured", which falls back to the
+        // defaults in Support\Columns (and to any legacy show_* toggles).
+        'columns' => null,
+
         // Layout and styling, shared by every widget in the bundle.
         // PRESENTATION_DEFAULTS -- values come from Presentation::defaults().
         'layout' => 'auto',
@@ -77,6 +82,7 @@ class UplinkUtilizationOverviewController extends BundleWidgetController
         $settings['warning_threshold'] = $warning;
         $settings['critical_threshold'] = $critical;
 
+        $settings = Columns::normalize($settings, $this->name);
         $settings = Presentation::normalize($settings, $this->name);
 
         return $settings;
@@ -90,6 +96,7 @@ class UplinkUtilizationOverviewController extends BundleWidgetController
         // dashboard posts with every refresh.
         $settings['layout'] = Presentation::resolveLayout($settings, $this->name, $request);
         $settings['widget_classes'] = Presentation::cssClasses($settings, $this->name, $settings['layout']);
+        $settings['cols'] = Columns::visible($settings, $this->name);
         $user = $request->user();
 
         $groupIds = DeviceGroups::accessibleIds($user, $settings['device_groups']);
@@ -318,6 +325,8 @@ class UplinkUtilizationOverviewController extends BundleWidgetController
         $settings['selected_device_groups'] = DeviceGroups::ordered($request->user(), $groupIds);
 
         $settings['layouts'] = Presentation::layoutsFor($this->name);
+        $settings['column_defs'] = Columns::definitionsFor($this->name);
+        $settings['column_visible'] = Columns::visible($settings, $this->name);
 
         return view('widgets.settings.uplink-utilization-overview', $settings);
     }

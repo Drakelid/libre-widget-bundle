@@ -5,6 +5,7 @@ namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 use App\Models\Port;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
+use Drakelid\NmsDashWidgets\Support\Columns;
 use Drakelid\NmsDashWidgets\Support\Presentation;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
 use Drakelid\NmsDashWidgets\Support\Format;
@@ -31,6 +32,10 @@ class TopBandwidthDeviceGroupController extends BundleWidgetController
         'show_graphs' => 1,
         'show_utilisation' => 1,
 
+        // Visible columns. null means "never configured", which falls back to the
+        // defaults in Support\Columns (and to any legacy show_* toggles).
+        'columns' => null,
+
         // Layout and styling, shared by every widget in the bundle.
         // PRESENTATION_DEFAULTS -- values come from Presentation::defaults().
         'layout' => 'auto',
@@ -51,6 +56,7 @@ class TopBandwidthDeviceGroupController extends BundleWidgetController
         $settings['show_utilisation'] = Cast::bool($settings['show_utilisation'] ?? true, true);
         $settings['device_groups'] = DeviceGroups::ids($settings['device_groups'] ?? []);
 
+        $settings = Columns::normalize($settings, $this->name);
         $settings = Presentation::normalize($settings, $this->name);
 
         return $settings;
@@ -64,6 +70,7 @@ class TopBandwidthDeviceGroupController extends BundleWidgetController
         // dashboard posts with every refresh.
         $settings['layout'] = Presentation::resolveLayout($settings, $this->name, $request);
         $settings['widget_classes'] = Presentation::cssClasses($settings, $this->name, $settings['layout']);
+        $settings['cols'] = Columns::visible($settings, $this->name);
         $user = $request->user();
 
         // Never trust group ids from the settings blob; a user could hand-edit one in.
@@ -152,6 +159,8 @@ class TopBandwidthDeviceGroupController extends BundleWidgetController
         $settings['selected_device_groups'] = DeviceGroups::ordered($request->user(), $groupIds);
 
         $settings['layouts'] = Presentation::layoutsFor($this->name);
+        $settings['column_defs'] = Columns::definitionsFor($this->name);
+        $settings['column_visible'] = Columns::visible($settings, $this->name);
 
         return view('widgets.settings.top-bandwidth-device-group', $settings);
     }

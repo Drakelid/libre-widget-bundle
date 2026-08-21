@@ -3,7 +3,7 @@
 <div class="{{ $widget_classes }} nmsdw-uplink">
     @if($show_header)
 
-        <div class="nmsdw-head">{{ __('Uplink Utilization Overview') }}</div>
+        <div class="nmsdw-head">{{ $heading ?: __('Uplink Utilization Overview') }}</div>
         <div class="nmsdw-sub">
             {{ __('uplink regex') }}: <code class="nmsdw-code">{{ $effective_regex }}</code>
             &middot; {{ __('last :count minutes', ['count' => $time_interval]) }}
@@ -88,12 +88,16 @@
                     <th>{{ __('Device') }}</th>
                     <th>{{ __('Uplink interface') }}</th>
                     <th>{{ __('Utilization') }}</th>
-                    <th class="nmsdw-hide-narrow">{{ __('Traffic') }}</th>
-                    <th class="nmsdw-hide-narrow nmsdw-nowrap">{{ __('Speed') }}</th>
-                    @if($show_graphs)
+                    @if($cols['traffic'])
+                        <th class="nmsdw-hide-narrow">{{ __('Traffic') }}</th>
+                    @endif
+                    @if($cols['speed'])
+                        <th class="nmsdw-hide-narrow nmsdw-nowrap">{{ __('Speed') }}</th>
+                    @endif
+                    @if($cols['graph'])
                         <th class="nmsdw-hide-narrow">{{ __('Graph') }}</th>
                     @endif
-                    @if($show_device_group)
+                    @if($cols['group'])
                         <th class="nmsdw-hide-narrow">{{ __('Group') }}</th>
                     @endif
                 </tr>
@@ -113,31 +117,35 @@
                                 <span class="nmsdw-sec">{{ $port->ifAlias }}</span>
                             @endif
                         </td>
-                        <td>
-                            @include('widgets.partials.nmsdw-pill', [
-                                'status' => $row['status'],
-                                'label' => $row['utilisation_label'],
-                            ])
-                            <div class="nmsdw-sec">{{ __('peak') }} {{ $row['peak_label'] }}</div>
-                            @include('widgets.partials.nmsdw-meter', [
-                                'percent' => $row['utilisation'] ?? 0,
-                                'status' => $row['status'],
-                            ])
-                            <div class="nmsdw-sec">
-                                {{ __('Warning') }} {{ $warning_threshold }}% &middot;
-                                {{ __('Critical') }} {{ $critical_threshold }}%
-                            </div>
-                            <span class="nmsdw-sec nmsdw-show-narrow">
-                                RX: {{ $row['in_label'] }} &middot; TX: {{ $row['out_label'] }}
-                            </span>
-                        </td>
+                        @if($cols['traffic'])
+                            <td>
+                                @include('widgets.partials.nmsdw-pill', [
+                                    'status' => $row['status'],
+                                    'label' => $row['utilisation_label'],
+                                ])
+                                <div class="nmsdw-sec">{{ __('peak') }} {{ $row['peak_label'] }}</div>
+                                @include('widgets.partials.nmsdw-meter', [
+                                    'percent' => $row['utilisation'] ?? 0,
+                                    'status' => $row['status'],
+                                ])
+                                <div class="nmsdw-sec">
+                                    {{ __('Warning') }} {{ $warning_threshold }}% &middot;
+                                    {{ __('Critical') }} {{ $critical_threshold }}%
+                                </div>
+                                <span class="nmsdw-sec nmsdw-show-narrow">
+                                    RX: {{ $row['in_label'] }} &middot; TX: {{ $row['out_label'] }}
+                                </span>
+                            </td>
+                        @endif
                         <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
                             <div>RX: {{ $row['in_label'] }}</div>
                             <div>TX: {{ $row['out_label'] }}</div>
                             <div>{{ __('Total') }}: {{ $row['total_label'] }}</div>
                         </td>
-                        <td class="nmsdw-hide-narrow nmsdw-nowrap">{{ $row['speed_label'] }}</td>
-                        @if($show_graphs)
+                        @if($cols['speed'])
+                            <td class="nmsdw-hide-narrow nmsdw-nowrap">{{ $row['speed_label'] }}</td>
+                        @endif
+                        @if($cols['graph'])
                             <td class="nmsdw-hide-narrow nmsdw-graph">
                                 <x-port-link :port="$port">
                                     {{-- :link="false" is required: x-graph otherwise renders its own <a>, --}}
@@ -147,7 +155,7 @@
                                 </x-port-link>
                             </td>
                         @endif
-                        @if($show_device_group)
+                        @if($cols['group'])
                             <td class="nmsdw-hide-narrow nmsdw-muted">{{ $row['group_names'] }}</td>
                         @endif
                     </tr>

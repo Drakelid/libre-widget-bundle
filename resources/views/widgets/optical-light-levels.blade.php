@@ -3,7 +3,7 @@
 <div class="{{ $widget_classes }} nmsdw-optical">
     @if($show_header)
 
-        <div class="nmsdw-head">{{ __('Optical light levels') }}</div>
+        <div class="nmsdw-head">{{ $heading ?: __('Optical light levels') }}</div>
         <div class="nmsdw-sub">
             {{ $group_label }} &middot; {{ __('ranked by margin above the low threshold') }}
         </div>
@@ -49,9 +49,13 @@
                     <th>{{ __('Device') }}</th>
                     <th>{{ __('Interface') }}</th>
                     <th class="nmsdw-nowrap">{{ __('Level') }}</th>
-                    <th class="nmsdw-nowrap">{{ __('Margin') }}</th>
-                    <th class="nmsdw-hide-narrow nmsdw-nowrap">{{ __('Thresholds') }}</th>
-                    @if($show_transceiver_details)
+                    @if($cols['margin'])
+                        <th class="nmsdw-nowrap">{{ __('Margin') }}</th>
+                    @endif
+                    @if($cols['thresholds'])
+                        <th class="nmsdw-hide-narrow nmsdw-nowrap">{{ __('Thresholds') }}</th>
+                    @endif
+                    @if($cols['optic'])
                         <th class="nmsdw-hide-narrow">{{ __('Optic') }}</th>
                     @endif
                 </tr>
@@ -75,24 +79,28 @@
                                 <span class="nmsdw-sec">{{ strtoupper($row['direction']) }}</span>
                             @endif
                         </td>
-                        <td class="nmsdw-nowrap">
-                            @include('widgets.partials.nmsdw-pill', [
-                                'status' => $row['status'],
-                                'label' => $row['margin'] === null ? __('n/a') : number_format($row['margin'], 2) . ' dB',
-                            ])
-                        </td>
-                        <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
-                            @if($row['low'] !== null)
-                                <div>{{ __('Low') }}: {{ number_format($row['low'], 2) }}</div>
-                            @endif
-                            @if($row['high'] !== null)
-                                <div>{{ __('High') }}: {{ number_format($row['high'], 2) }}</div>
-                            @endif
-                            @if($row['low'] === null && $row['high'] === null)
-                                <div>{{ __('none reported') }}</div>
-                            @endif
-                        </td>
-                        @if($show_transceiver_details)
+                        @if($cols['margin'])
+                            <td class="nmsdw-nowrap">
+                                @include('widgets.partials.nmsdw-pill', [
+                                    'status' => $row['status'],
+                                    'label' => $row['margin'] === null ? __('n/a') : number_format($row['margin'], 2) . ' dB',
+                                ])
+                            </td>
+                        @endif
+                        @if($cols['thresholds'])
+                            <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
+                                @if($row['low'] !== null)
+                                    <div>{{ __('Low') }}: {{ number_format($row['low'], 2) }}</div>
+                                @endif
+                                @if($row['high'] !== null)
+                                    <div>{{ __('High') }}: {{ number_format($row['high'], 2) }}</div>
+                                @endif
+                                @if($row['low'] === null && $row['high'] === null)
+                                    <div>{{ __('none reported') }}</div>
+                                @endif
+                            </td>
+                        @endif
+                        @if($cols['optic'])
                             <td class="nmsdw-hide-narrow nmsdw-muted">
                                 @if($row['transceiver'])
                                     <div>{{ $row['transceiver']->vendor }} {{ $row['transceiver']->model }}</div>

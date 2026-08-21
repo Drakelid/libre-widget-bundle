@@ -3,7 +3,7 @@
 <div class="{{ $widget_classes }} nmsdw-poller">
     @if($show_header)
 
-        <div class="nmsdw-head">{{ __('Poller health') }}</div>
+        <div class="nmsdw-head">{{ $heading ?: __('Poller health') }}</div>
         <div class="nmsdw-sub">
             {{ $group_label }} &middot;
             {{ __('stale after :count minutes without a poll', ['count' => $stale_minutes]) }}
@@ -74,7 +74,9 @@
                 <tr>
                     <th>{{ __('Device') }}</th>
                     <th class="nmsdw-nowrap">{{ __('Last polled') }}</th>
-                    <th class="nmsdw-hide-narrow">{{ __('Status') }}</th>
+                    @if($cols['status'])
+                        <th class="nmsdw-hide-narrow">{{ __('Status') }}</th>
+                    @endif
                 </tr>
             </thead>
             <tbody>
@@ -90,9 +92,11 @@
                                 @include('widgets.partials.nmsdw-pill', ['status' => 'critical', 'label' => __('never')])
                             @endif
                         </td>
-                        <td class="nmsdw-hide-narrow nmsdw-muted">
-                            {{ $row['device']->status ? __('up') : __('down') }}
-                        </td>
+                        @if($cols['status'])
+                            <td class="nmsdw-hide-narrow nmsdw-muted">
+                                {{ $row['device']->status ? __('up') : __('down') }}
+                            </td>
+                        @endif
                     </tr>
                 @endforeach
             </tbody>

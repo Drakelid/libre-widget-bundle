@@ -2,7 +2,7 @@
 
 <div class="{{ $widget_classes }} nmsdw-temps">
     @if($show_header)
-        <div class="nmsdw-head">{{ __('Device temperatures') }}</div>
+        <div class="nmsdw-head">{{ $heading ?: __('Device temperatures') }}</div>
         <div class="nmsdw-sub">
             {{ $group_label }} &middot;
             {{ $include_module_sensors ? __('all temperature sensors') : __('device / chassis only') }}

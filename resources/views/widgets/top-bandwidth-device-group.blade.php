@@ -3,7 +3,7 @@
 <div class="{{ $widget_classes }} nmsdw-bandwidth">
     @if($show_header)
 
-        <div class="nmsdw-head">{{ __('Top :count bandwidth ports', ['count' => $top_count]) }}</div>
+        <div class="nmsdw-head">{{ $heading ?: __('Top :count bandwidth ports', ['count' => $top_count]) }}</div>
         <div class="nmsdw-sub">
             {{ $group_label }} &middot; {{ __('polled within :count minutes', ['count' => $time_interval]) }}
         </div>
@@ -31,7 +31,7 @@
                 'meta' => array_values(array_filter([
                     [__('In'), $r['in_label']],
                     [__('Out'), $r['out_label']],
-                    $show_utilisation ? [__('Util'), $r['utilisation_label']] : null,
+                    $cols['utilisation'] ? [__('Util'), $r['utilisation_label']] : null,
                 ])),
                 'href' => \LibreNMS\Util\Url::portUrl($r['port']),
             ])->all();
@@ -49,14 +49,16 @@
                     <th>{{ __('Device') }}</th>
                     <th>{{ __('Interface') }}</th>
                     <th>{{ __('Usage') }}</th>
-                    <th class="nmsdw-hide-narrow">{{ __('In / Out') }}</th>
-                    @if($show_utilisation)
+                    @if($cols['inout'])
+                        <th class="nmsdw-hide-narrow">{{ __('In / Out') }}</th>
+                    @endif
+                    @if($cols['utilisation'])
                         <th class="nmsdw-nowrap">{{ __('Util.') }}</th>
                     @endif
-                    @if($show_graphs)
+                    @if($cols['graph'])
                         <th class="nmsdw-hide-narrow">{{ __('Graph') }}</th>
                     @endif
-                    @if($has_group_filter)
+                    @if($cols['group'] && $has_group_filter)
                         <th class="nmsdw-hide-narrow">{{ __('Group') }}</th>
                     @endif
                 </tr>
@@ -88,14 +90,16 @@
                                 {{ __('Out') }}: {{ $row['out_label'] }}
                             </span>
                         </td>
-                        <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
-                            <div>{{ __('In') }}: {{ $row['in_label'] }}</div>
-                            <div>{{ __('Out') }}: {{ $row['out_label'] }}</div>
-                        </td>
-                        @if($show_utilisation)
+                        @if($cols['inout'])
+                            <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
+                                <div>{{ __('In') }}: {{ $row['in_label'] }}</div>
+                                <div>{{ __('Out') }}: {{ $row['out_label'] }}</div>
+                            </td>
+                        @endif
+                        @if($cols['utilisation'])
                             <td class="nmsdw-nowrap">{{ $row['utilisation_label'] }}</td>
                         @endif
-                        @if($show_graphs)
+                        @if($cols['graph'])
                             <td class="nmsdw-hide-narrow nmsdw-graph">
                                 <x-port-link :port="$port">
                                     {{-- :link="false" is required: x-graph otherwise renders its own <a>, --}}
@@ -105,7 +109,7 @@
                                 </x-port-link>
                             </td>
                         @endif
-                        @if($has_group_filter)
+                        @if($cols['group'] && $has_group_filter)
                             <td class="nmsdw-hide-narrow nmsdw-muted">{{ $row['group_names'] }}</td>
                         @endif
                     </tr>

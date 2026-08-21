@@ -5,6 +5,7 @@ namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 use App\Models\BgpPeer;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
+use Drakelid\NmsDashWidgets\Support\Columns;
 use Drakelid\NmsDashWidgets\Support\Presentation;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
 use Illuminate\Http\Request;
@@ -38,6 +39,10 @@ class BgpSessionHealthController extends BundleWidgetController
         'prefix_drop_percent' => 20,
         'limit' => 25,
 
+        // Visible columns. null means "never configured", which falls back to the
+        // defaults in Support\Columns (and to any legacy show_* toggles).
+        'columns' => null,
+
         // Layout and styling, shared by every widget in the bundle.
         // PRESENTATION_DEFAULTS -- values come from Presentation::defaults().
         'layout' => 'auto',
@@ -58,6 +63,7 @@ class BgpSessionHealthController extends BundleWidgetController
         $settings['prefix_drop_percent'] = Cast::clampedFloat($settings['prefix_drop_percent'] ?? 20, 0, 100, 20);
         $settings['limit'] = Cast::clampedInt($settings['limit'] ?? 25, 1, 200, 25);
 
+        $settings = Columns::normalize($settings, $this->name);
         $settings = Presentation::normalize($settings, $this->name);
 
         return $settings;
@@ -71,6 +77,7 @@ class BgpSessionHealthController extends BundleWidgetController
         // dashboard posts with every refresh.
         $settings['layout'] = Presentation::resolveLayout($settings, $this->name, $request);
         $settings['widget_classes'] = Presentation::cssClasses($settings, $this->name, $settings['layout']);
+        $settings['cols'] = Columns::visible($settings, $this->name);
         $user = $request->user();
 
         $groupIds = DeviceGroups::accessibleIds($user, $settings['device_groups']);
@@ -245,6 +252,8 @@ class BgpSessionHealthController extends BundleWidgetController
         $settings['selected_device_groups'] = DeviceGroups::ordered($request->user(), $groupIds);
 
         $settings['layouts'] = Presentation::layoutsFor($this->name);
+        $settings['column_defs'] = Columns::definitionsFor($this->name);
+        $settings['column_visible'] = Columns::visible($settings, $this->name);
 
         return view('widgets.settings.bgp-session-health', $settings);
     }

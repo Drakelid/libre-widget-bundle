@@ -2,7 +2,7 @@
 
 <div class="{{ $widget_classes }} nmsdw-recent">
     @if($show_header)
-        <div class="nmsdw-head">{{ __('Recently added devices') }}</div>
+        <div class="nmsdw-head">{{ $heading ?: __('Recently added devices') }}</div>
         <div class="nmsdw-sub">{{ __('newest first') }}</div>
     @endif
     @if(in_array($layout, ['cards', 'compact', 'tiles'], true))
@@ -32,8 +32,12 @@
             <thead>
                 <tr>
                     <th>{{ __('Device') }}</th>
-                    <th class="nmsdw-hide-narrow">{{ __('Hardware') }}</th>
-                    <th class="nmsdw-hide-narrow">{{ __('OS') }}</th>
+                    @if($cols['hardware'])
+                        <th class="nmsdw-hide-narrow">{{ __('Hardware') }}</th>
+                    @endif
+                    @if($cols['os'])
+                        <th class="nmsdw-hide-narrow">{{ __('OS') }}</th>
+                    @endif
                     <th>{{ __('Added') }}</th>
                 </tr>
             </thead>
@@ -44,8 +48,12 @@
                             <span class="label label-{{ $device->disabled ? 'default' : ($device->status ? 'success' : 'danger') }}">&nbsp;</span>
                             <x-device-link :device="$device" />
                         </td>
-                        <td class="nmsdw-hide-narrow nmsdw-muted">{{ $device->hardware }}</td>
-                        <td class="nmsdw-hide-narrow nmsdw-muted">{{ $device->os }}</td>
+                        @if($cols['hardware'])
+                            <td class="nmsdw-hide-narrow nmsdw-muted">{{ $device->hardware }}</td>
+                        @endif
+                        @if($cols['os'])
+                            <td class="nmsdw-hide-narrow nmsdw-muted">{{ $device->os }}</td>
+                        @endif
                         <td class="nmsdw-muted" title="{{ $device->inserted }}">
                             {{ $device->inserted ? $device->inserted->diffForHumans() : __('Unknown') }}
                         </td>

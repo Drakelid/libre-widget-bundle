@@ -14,6 +14,7 @@
         <label for="title-{{ $id }}" class="control-label">{{ __('Widget title') }}</label>
         <input type="text" class="form-control" name="title" id="title-{{ $id }}"
                placeholder="{{ __('Flapping Devices / Unstable Links') }}" value="{{ $title }}">
+        <span class="help-block">{{ __('Sets the bar along the top of the widget.') }}</span>
     </div>
 
     <div class="form-group">
@@ -57,9 +58,18 @@
     </div>
     <hr>
 
+    @include('widgets.partials.nmsdw-column-fields', [
+        'id' => $id,
+        'column_defs' => $column_defs,
+        'column_visible' => $column_visible,
+    ])
+
+    <hr>
+
     @include('widgets.partials.nmsdw-presentation-fields', [
         'id' => $id,
         'layouts' => $layouts,
+        'heading' => $heading,
         'layout' => $layout,
         'density' => $density,
         'accent' => $accent,

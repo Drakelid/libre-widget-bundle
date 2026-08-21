@@ -2,7 +2,7 @@
 
 <div class="{{ $widget_classes }} nmsdw-flapping">
     @if($show_header)
-        <div class="nmsdw-head">{{ __('Flapping devices and links') }}</div>
+        <div class="nmsdw-head">{{ $heading ?: __('Flapping devices and links') }}</div>
         <div class="nmsdw-sub">
             {{ __('last :h hours', ['h' => $lookback_hours]) }} &middot;
             {{ __('at least :n changes', ['n' => $min_changes]) }}
@@ -65,9 +65,15 @@
                     <th>{{ __('Device') }}</th>
                     <th>{{ __('Item') }}</th>
                     <th class="nmsdw-nowrap">{{ __('Changes') }}</th>
-                    <th class="nmsdw-nowrap">{{ __('State') }}</th>
-                    <th class="nmsdw-hide-narrow nmsdw-nowrap">{{ __('Last') }}</th>
-                    <th class="nmsdw-hide-narrow">{{ __('Message') }}</th>
+                    @if($cols['state'])
+                        <th class="nmsdw-nowrap">{{ __('State') }}</th>
+                    @endif
+                    @if($cols['last'])
+                        <th class="nmsdw-hide-narrow nmsdw-nowrap">{{ __('Last') }}</th>
+                    @endif
+                    @if($cols['message'])
+                        <th class="nmsdw-hide-narrow">{{ __('Message') }}</th>
+                    @endif
                 </tr>
             </thead>
             <tbody>
@@ -88,12 +94,18 @@
                                 'label' => $row->changes,
                             ])
                         </td>
-                        <td class="nmsdw-nowrap">{{ $row->state }}</td>
-                        <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap"
-                            title="{{ $row->last_change }}">
-                            {{ \Carbon\Carbon::parse($row->last_change)->diffForHumans(null, true) }}
-                        </td>
-                        <td class="nmsdw-hide-narrow nmsdw-muted">{{ $row->short_message }}</td>
+                        @if($cols['state'])
+                            <td class="nmsdw-nowrap">{{ $row->state }}</td>
+                        @endif
+                        @if($cols['last'])
+                            <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap"
+                                title="{{ $row->last_change }}">
+                                {{ \Carbon\Carbon::parse($row->last_change)->diffForHumans(null, true) }}
+                            </td>
+                        @endif
+                        @if($cols['message'])
+                            <td class="nmsdw-hide-narrow nmsdw-muted">{{ $row->short_message }}</td>
+                        @endif
                     </tr>
                 @endforeach
             </tbody>

@@ -3,7 +3,7 @@
 <div class="{{ $widget_classes }} nmsdw-bgp">
     @if($show_header)
 
-        <div class="nmsdw-head">{{ __('BGP session health') }}</div>
+        <div class="nmsdw-head">{{ $heading ?: __('BGP session health') }}</div>
         <div class="nmsdw-sub">{{ $group_label }}</div>
     @endif
 
@@ -56,11 +56,15 @@
                     <th>{{ __('Device') }}</th>
                     <th>{{ __('Peer') }}</th>
                     <th class="nmsdw-nowrap">{{ __('State') }}</th>
-                    <th class="nmsdw-hide-narrow nmsdw-nowrap">{{ __('Uptime') }}</th>
-                    @if($show_prefixes)
+                    @if($cols['uptime'])
+                        <th class="nmsdw-hide-narrow nmsdw-nowrap">{{ __('Uptime') }}</th>
+                    @endif
+                    @if($cols['prefixes'])
                         <th class="nmsdw-hide-narrow nmsdw-nowrap">{{ __('Prefixes') }}</th>
                     @endif
-                    <th class="nmsdw-hide-narrow">{{ __('Last error') }}</th>
+                    @if($cols['error'])
+                        <th class="nmsdw-hide-narrow">{{ __('Last error') }}</th>
+                    @endif
                 </tr>
             </thead>
             <tbody>
@@ -88,14 +92,16 @@
                                 <span class="nmsdw-sec">{{ __('just re-established') }}</span>
                             @endif
                         </td>
-                        <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
-                            @if($row['uptime_seconds'] > 0)
-                                {{ \Carbon\CarbonInterval::seconds($row['uptime_seconds'])->cascade()->forHumans(['short' => true, 'parts' => 2]) }}
-                            @else
-                                &mdash;
-                            @endif
-                        </td>
-                        @if($show_prefixes)
+                        @if($cols['uptime'])
+                            <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
+                                @if($row['uptime_seconds'] > 0)
+                                    {{ \Carbon\CarbonInterval::seconds($row['uptime_seconds'])->cascade()->forHumans(['short' => true, 'parts' => 2]) }}
+                                @else
+                                    &mdash;
+                                @endif
+                            </td>
+                        @endif
+                        @if($cols['prefixes'])
                             <td class="nmsdw-hide-narrow nmsdw-nowrap">
                                 @if($row['prefix'])
                                     <div class="{{ $row['prefix']['dropped'] ? 'nmsdw-strong' : '' }}">
@@ -112,9 +118,11 @@
                                 @endif
                             </td>
                         @endif
-                        <td class="nmsdw-hide-narrow nmsdw-muted">
-                            {{ \Illuminate\Support\Str::limit((string) $peer->bgpPeerLastErrorText, 60) }}
-                        </td>
+                        @if($cols['error'])
+                            <td class="nmsdw-hide-narrow nmsdw-muted">
+                                {{ \Illuminate\Support\Str::limit((string) $peer->bgpPeerLastErrorText, 60) }}
+                            </td>
+                        @endif
                     </tr>
                 @endforeach
             </tbody>

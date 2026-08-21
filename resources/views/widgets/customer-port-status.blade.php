@@ -3,7 +3,7 @@
 <div class="{{ $widget_classes }} nmsdw-custports">
     @if($show_header)
 
-        <div class="nmsdw-head">{{ __('Customer ports down') }}</div>
+        <div class="nmsdw-head">{{ $heading ?: __('Customer ports down') }}</div>
         <div class="nmsdw-sub">
             {{ $group_label }} &middot;
             {{ __('matching') }} <code class="nmsdw-code">{{ $effective_regex }}</code>
@@ -54,8 +54,12 @@
                     <th>{{ __('Device') }}</th>
                     <th>{{ __('Port') }}</th>
                     <th class="nmsdw-nowrap">{{ __('State') }}</th>
-                    <th class="nmsdw-hide-narrow nmsdw-nowrap">{{ __('Down for') }}</th>
-                    <th class="nmsdw-hide-narrow">{{ __('Group') }}</th>
+                    @if($cols['downfor'])
+                        <th class="nmsdw-hide-narrow nmsdw-nowrap">{{ __('Down for') }}</th>
+                    @endif
+                    @if($cols['group'])
+                        <th class="nmsdw-hide-narrow">{{ __('Group') }}</th>
+                    @endif
                 </tr>
             </thead>
             <tbody>
@@ -77,14 +81,18 @@
                                 'label' => $row['admin_down'] ? __('shut') : __('DOWN'),
                             ])
                         </td>
-                        <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
-                            @if($row['down_seconds'] !== null)
-                                {{ \Carbon\CarbonInterval::seconds($row['down_seconds'])->cascade()->forHumans(['short' => true, 'parts' => 2]) }}
-                            @else
-                                <span title="{{ __('ifLastChange is relative to device uptime and was unavailable or implausible') }}">&mdash;</span>
-                            @endif
-                        </td>
-                        <td class="nmsdw-hide-narrow nmsdw-muted">{{ $row['group_names'] }}</td>
+                        @if($cols['downfor'])
+                            <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
+                                @if($row['down_seconds'] !== null)
+                                    {{ \Carbon\CarbonInterval::seconds($row['down_seconds'])->cascade()->forHumans(['short' => true, 'parts' => 2]) }}
+                                @else
+                                    <span title="{{ __('ifLastChange is relative to device uptime and was unavailable or implausible') }}">&mdash;</span>
+                                @endif
+                            </td>
+                        @endif
+                        @if($cols['group'])
+                            <td class="nmsdw-hide-narrow nmsdw-muted">{{ $row['group_names'] }}</td>
+                        @endif
                     </tr>
                 @endforeach
             </tbody>

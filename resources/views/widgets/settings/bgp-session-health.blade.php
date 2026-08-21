@@ -5,6 +5,7 @@
         <label for="title-{{ $id }}" class="control-label">{{ __('Widget title') }}</label>
         <input type="text" class="form-control" name="title" id="title-{{ $id }}"
                placeholder="{{ __('BGP Session Health') }}" value="{{ $title }}">
+        <span class="help-block">{{ __('Sets the bar along the top of the widget.') }}</span>
     </div>
 
     @include('widgets.partials.nmsdw-device-groups-field', [
@@ -41,14 +42,6 @@
                name="limit" id="limit-{{ $id }}" value="{{ $limit }}">
     </div>
 
-    <div class="checkbox">
-        <label>
-            <input type="hidden" name="show_prefixes" value="0">
-            <input type="checkbox" name="show_prefixes" value="1" @checked((bool) $show_prefixes)>
-            {{ __('Show accepted prefix counts') }}
-        </label>
-    </div>
-
     <div class="form-group">
         <label for="prefix_drop_percent-{{ $id }}" class="control-label">{{ __('Prefix drop warning %') }}</label>
         <input type="number" step="1" min="0" max="100" class="form-control"
@@ -59,9 +52,18 @@
     </div>
     <hr>
 
+    @include('widgets.partials.nmsdw-column-fields', [
+        'id' => $id,
+        'column_defs' => $column_defs,
+        'column_visible' => $column_visible,
+    ])
+
+    <hr>
+
     @include('widgets.partials.nmsdw-presentation-fields', [
         'id' => $id,
         'layouts' => $layouts,
+        'heading' => $heading,
         'layout' => $layout,
         'density' => $density,
         'accent' => $accent,

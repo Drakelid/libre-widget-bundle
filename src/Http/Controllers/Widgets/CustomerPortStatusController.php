@@ -5,6 +5,7 @@ namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 use App\Models\Port;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
+use Drakelid\NmsDashWidgets\Support\Columns;
 use Drakelid\NmsDashWidgets\Support\Presentation;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
 use Drakelid\NmsDashWidgets\Support\SafeRegex;
@@ -38,6 +39,10 @@ class CustomerPortStatusController extends BundleWidgetController
         'min_down_minutes' => 0,
         'show_admin_down' => false,
 
+        // Visible columns. null means "never configured", which falls back to the
+        // defaults in Support\Columns (and to any legacy show_* toggles).
+        'columns' => null,
+
         // Layout and styling, shared by every widget in the bundle.
         // PRESENTATION_DEFAULTS -- values come from Presentation::defaults().
         'layout' => 'auto',
@@ -59,6 +64,7 @@ class CustomerPortStatusController extends BundleWidgetController
         $settings['min_down_minutes'] = Cast::clampedInt($settings['min_down_minutes'] ?? 0, 0, 10080, 0);
         $settings['show_admin_down'] = Cast::bool($settings['show_admin_down'] ?? false, false);
 
+        $settings = Columns::normalize($settings, $this->name);
         $settings = Presentation::normalize($settings, $this->name);
 
         return $settings;
@@ -72,6 +78,7 @@ class CustomerPortStatusController extends BundleWidgetController
         // dashboard posts with every refresh.
         $settings['layout'] = Presentation::resolveLayout($settings, $this->name, $request);
         $settings['widget_classes'] = Presentation::cssClasses($settings, $this->name, $settings['layout']);
+        $settings['cols'] = Columns::visible($settings, $this->name);
         $user = $request->user();
 
         $groupIds = DeviceGroups::accessibleIds($user, $settings['device_groups']);
@@ -216,6 +223,8 @@ class CustomerPortStatusController extends BundleWidgetController
         $settings['selected_device_groups'] = DeviceGroups::ordered($request->user(), $groupIds);
 
         $settings['layouts'] = Presentation::layoutsFor($this->name);
+        $settings['column_defs'] = Columns::definitionsFor($this->name);
+        $settings['column_visible'] = Columns::visible($settings, $this->name);
 
         return view('widgets.settings.customer-port-status', $settings);
     }

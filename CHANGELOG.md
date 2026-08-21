@@ -5,6 +5,55 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-08-21
+
+### Added
+
+- **Editable heading inside each widget.** Every widget now has a `heading` setting that
+  replaces the heading rendered in the widget body. Leave it empty to keep the widget's
+  own wording.
+
+### Fixed
+
+- Renaming a widget only changed the bar along the top. The heading inside the body was
+  hardcoded, so a widget retitled "Core uplinks" still said "Uplink Utilization Overview"
+  one line further down. The two are now independently settable, and the "Widget title"
+  field says which one it controls.
+
+### Notes
+
+- LibreNMS's own `title` setting continues to drive the top bar; nothing about that
+  changed. Widgets where the heading is dynamic -- Top Bandwidth shows "Top 10 bandwidth
+  ports" -- keep generating it unless a heading is entered, in which case the override
+  wins outright.
+
+## [1.5.0] - 2026-08-21
+
+### Added
+
+- **Column visibility** on the eight table widgets. Each settings form lists its columns
+  as checkboxes, so a dashboard can drop the device group column when everything is one
+  group, the sparkline on a narrow widget, or the BGP last-error text on a wall display.
+- `Support/Columns.php` holds the per-widget column definitions, coercion and the
+  defaults.
+
+### Changed
+
+- The per-column toggles that shipped earlier -- `show_graphs`, `show_utilisation`,
+  `show_device_group`, `show_transceiver_details`, `show_prefixes` -- are now expressed
+  as columns. Their checkboxes have been removed from the settings forms to avoid two
+  controls for one thing.
+- Columns that are essential to a widget (the device, and the value it exists to report)
+  are marked required: they render always and appear greyed out in the form. A row with
+  no device and no measurement says nothing.
+
+### Notes
+
+- **Saved widgets are unaffected.** When `columns` has never been set, visibility is
+  seeded from the old `show_*` values, so a widget with graphs turned off keeps them off.
+  Those keys remain in the defaults purely so that migration keeps working.
+- Column choices apply to the cards and compact layouts too, not just the table.
+
 ## [1.4.0] - 2026-08-21
 
 ### Added

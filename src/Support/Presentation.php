@@ -51,6 +51,10 @@ final class Presentation
     public static function defaults(string $slug): array
     {
         return [
+            // Overrides the heading rendered inside the widget body. Null keeps each
+            // widget's own wording. The title bar at the top of the widget is core's
+            // `title` setting, which is separate.
+            'heading' => null,
             'layout' => self::defaultLayout($slug),
             'density' => 'comfortable',
             'accent' => 'default',
@@ -86,6 +90,7 @@ final class Presentation
         // 'auto' is accepted for every widget and resolved at render time.
         $allowed = array_merge(['auto'], $layouts);
 
+        $settings['heading'] = Cast::nullableString($settings['heading'] ?? null);
         $settings['layout'] = Cast::choice($settings['layout'] ?? null, $allowed, self::defaultLayout($slug));
         $settings['density'] = Cast::choice($settings['density'] ?? null, self::DENSITIES, 'comfortable');
         $settings['accent'] = Cast::choice($settings['accent'] ?? null, self::ACCENTS, 'default');

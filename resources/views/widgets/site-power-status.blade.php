@@ -3,7 +3,7 @@
 <div class="{{ $widget_classes }} nmsdw-power">
     @if($show_header)
 
-        <div class="nmsdw-head">{{ __('Site power and battery') }}</div>
+        <div class="nmsdw-head">{{ $heading ?: __('Site power and battery') }}</div>
         <div class="nmsdw-sub">
             {{ $group_label }} &middot;
             {{ $group_by === 'location' ? __('grouped by location') : __('grouped by device') }} &middot;

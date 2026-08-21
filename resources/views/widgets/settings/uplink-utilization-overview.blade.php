@@ -5,6 +5,7 @@
         <label for="title-{{ $id }}" class="control-label">{{ __('Widget title') }}</label>
         <input type="text" class="form-control" name="title" id="title-{{ $id }}"
                placeholder="{{ __('Uplink Utilization Overview') }}" value="{{ $title }}">
+        <span class="help-block">{{ __('Sets the bar along the top of the widget.') }}</span>
     </div>
 
     @include('widgets.partials.nmsdw-device-groups-field', [
@@ -58,26 +59,20 @@
                name="critical_threshold" id="critical_threshold-{{ $id }}" value="{{ $critical_threshold }}">
     </div>
 
-    <div class="checkbox">
-        <label>
-            <input type="hidden" name="show_graphs" value="0">
-            <input type="checkbox" name="show_graphs" value="1" @checked((bool) $show_graphs)>
-            {{ __('Show mini graphs') }}
-        </label>
-    </div>
+    <hr>
 
-    <div class="checkbox">
-        <label>
-            <input type="hidden" name="show_device_group" value="0">
-            <input type="checkbox" name="show_device_group" value="1" @checked((bool) $show_device_group)>
-            {{ __('Show device group column') }}
-        </label>
-    </div>
+    @include('widgets.partials.nmsdw-column-fields', [
+        'id' => $id,
+        'column_defs' => $column_defs,
+        'column_visible' => $column_visible,
+    ])
+
     <hr>
 
     @include('widgets.partials.nmsdw-presentation-fields', [
         'id' => $id,
         'layouts' => $layouts,
+        'heading' => $heading,
         'layout' => $layout,
         'density' => $density,
         'accent' => $accent,

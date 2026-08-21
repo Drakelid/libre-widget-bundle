@@ -164,6 +164,27 @@ Every widget exposes the same controls. Spot-check three widgets rather than all
 - [ ] Cards and compact show the same data as the table: no row silently dropped.
 - [ ] Widgets saved before 1.4.0 render exactly as before until edited.
 
+### Gate 6e — column visibility (1.5.0)
+
+- [ ] Each table widget's settings list its columns; unchecking one removes both the
+      header and the cell, with no empty column left behind.
+- [ ] Required columns show as checked and disabled and cannot be hidden.
+- [ ] Hiding a column also drops it from the cards and compact layouts.
+- [ ] **Migration**: a widget saved before 1.5.0 with `show_graphs` off still has no
+      graph column, and its Columns checkbox reflects that. Same for
+      `show_device_group`, `show_utilisation`, `show_transceiver_details`,
+      `show_prefixes`.
+- [ ] Saving a widget with every optional column unchecked still renders readable rows.
+
+### Gate 6f — titles and headings (1.6.0)
+
+- [ ] "Widget title" changes the bar along the top of the widget, as before.
+- [ ] "Heading inside the widget" changes the heading in the body, independently.
+- [ ] Leaving the heading empty restores each widget's own wording, including the
+      dynamic ones (Top Bandwidth: "Top 10 bandwidth ports").
+- [ ] Turning off "Show the heading" hides it regardless of the override.
+- [ ] Both survive a widget refresh and a page reload.
+
 ### Gate 7 — resilience
 
 - [ ] Invalid regex (e.g. `uplink(`) in the Uplink and Temperature widgets produces an

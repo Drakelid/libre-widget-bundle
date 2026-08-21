@@ -6,6 +6,7 @@ use App\Models\Device;
 use App\Models\PollerCluster;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
+use Drakelid\NmsDashWidgets\Support\Columns;
 use Drakelid\NmsDashWidgets\Support\Presentation;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
 use Carbon\Carbon;
@@ -32,6 +33,10 @@ class PollerHealthController extends BundleWidgetController
         'show_pollers' => true,
         'ignore_disabled' => true,
 
+        // Visible columns. null means "never configured", which falls back to the
+        // defaults in Support\Columns (and to any legacy show_* toggles).
+        'columns' => null,
+
         // Layout and styling, shared by every widget in the bundle.
         // PRESENTATION_DEFAULTS -- values come from Presentation::defaults().
         'layout' => 'auto',
@@ -51,6 +56,7 @@ class PollerHealthController extends BundleWidgetController
         $settings['show_pollers'] = Cast::bool($settings['show_pollers'] ?? true, true);
         $settings['ignore_disabled'] = Cast::bool($settings['ignore_disabled'] ?? true, true);
 
+        $settings = Columns::normalize($settings, $this->name);
         $settings = Presentation::normalize($settings, $this->name);
 
         return $settings;
@@ -64,6 +70,7 @@ class PollerHealthController extends BundleWidgetController
         // dashboard posts with every refresh.
         $settings['layout'] = Presentation::resolveLayout($settings, $this->name, $request);
         $settings['widget_classes'] = Presentation::cssClasses($settings, $this->name, $settings['layout']);
+        $settings['cols'] = Columns::visible($settings, $this->name);
         $user = $request->user();
 
         $groupIds = DeviceGroups::accessibleIds($user, $settings['device_groups']);
@@ -159,6 +166,8 @@ class PollerHealthController extends BundleWidgetController
         $settings['selected_device_groups'] = DeviceGroups::ordered($request->user(), $groupIds);
 
         $settings['layouts'] = Presentation::layoutsFor($this->name);
+        $settings['column_defs'] = Columns::definitionsFor($this->name);
+        $settings['column_visible'] = Columns::visible($settings, $this->name);
 
         return view('widgets.settings.poller-health', $settings);
     }

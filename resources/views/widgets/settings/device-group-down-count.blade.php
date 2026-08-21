@@ -5,6 +5,16 @@
         <label for="title-{{ $id }}" class="control-label">{{ __('Widget title') }}</label>
         <input type="text" class="form-control" name="title" id="title-{{ $id }}"
                placeholder="{{ __('Device Group Down Count') }}" value="{{ $title }}">
+        <span class="help-block">{{ __('Sets the bar along the top of the widget.') }}</span>
+    </div>
+
+    <div class="form-group">
+        <label for="heading-{{ $id }}" class="control-label">{{ __('Heading inside the widget') }}</label>
+        <input type="text" class="form-control" name="heading" id="heading-{{ $id }}"
+               placeholder="{{ __('Use the default') }}" value="{{ $heading }}">
+        <span class="help-block">
+            {{ __('Optional. Replaces the heading shown in the widget body. The bar along the top of the widget is set by "Widget title" above.') }}
+        </span>
     </div>
 
     @include('widgets.partials.nmsdw-device-groups-field', [

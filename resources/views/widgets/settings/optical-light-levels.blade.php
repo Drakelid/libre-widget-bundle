@@ -5,6 +5,7 @@
         <label for="title-{{ $id }}" class="control-label">{{ __('Widget title') }}</label>
         <input type="text" class="form-control" name="title" id="title-{{ $id }}"
                placeholder="{{ __('Optical Light Levels') }}" value="{{ $title }}">
+        <span class="help-block">{{ __('Sets the bar along the top of the widget.') }}</span>
     </div>
 
     @include('widgets.partials.nmsdw-device-groups-field', [
@@ -72,18 +73,20 @@
         </span>
     </div>
 
-    <div class="checkbox">
-        <label>
-            <input type="hidden" name="show_transceiver_details" value="0">
-            <input type="checkbox" name="show_transceiver_details" value="1" @checked((bool) $show_transceiver_details)>
-            {{ __('Show transceiver vendor, model and wavelength') }}
-        </label>
-    </div>
+    <hr>
+
+    @include('widgets.partials.nmsdw-column-fields', [
+        'id' => $id,
+        'column_defs' => $column_defs,
+        'column_visible' => $column_visible,
+    ])
+
     <hr>
 
     @include('widgets.partials.nmsdw-presentation-fields', [
         'id' => $id,
         'layouts' => $layouts,
+        'heading' => $heading,
         'layout' => $layout,
         'density' => $density,
         'accent' => $accent,

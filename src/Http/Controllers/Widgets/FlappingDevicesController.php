@@ -5,6 +5,7 @@ namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 use App\Models\Device;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
+use Drakelid\NmsDashWidgets\Support\Columns;
 use Drakelid\NmsDashWidgets\Support\Presentation;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -40,6 +41,10 @@ class FlappingDevicesController extends BundleWidgetController
         'device_group' => null,
         'refresh' => 60,
 
+        // Visible columns. null means "never configured", which falls back to the
+        // defaults in Support\Columns (and to any legacy show_* toggles).
+        'columns' => null,
+
         // Layout and styling, shared by every widget in the bundle.
         // PRESENTATION_DEFAULTS -- values come from Presentation::defaults().
         'layout' => 'auto',
@@ -58,6 +63,7 @@ class FlappingDevicesController extends BundleWidgetController
         $settings['limit'] = Cast::clampedInt($settings['limit'] ?? 15, 1, 100, 15);
         $settings['show_type'] = Cast::choice($settings['show_type'] ?? 'all', self::SHOW_TYPES, 'all');
 
+        $settings = Columns::normalize($settings, $this->name);
         $settings = Presentation::normalize($settings, $this->name);
 
         return $settings;
@@ -71,6 +77,7 @@ class FlappingDevicesController extends BundleWidgetController
         // dashboard posts with every refresh.
         $settings['layout'] = Presentation::resolveLayout($settings, $this->name, $request);
         $settings['widget_classes'] = Presentation::cssClasses($settings, $this->name, $settings['layout']);
+        $settings['cols'] = Columns::visible($settings, $this->name);
         $since = Carbon::now()->subHours($settings['lookback_hours'])->toDateTimeString();
 
         // Resolve accessible devices first; the eventlog itself carries no permissions.
@@ -247,6 +254,8 @@ class FlappingDevicesController extends BundleWidgetController
     {
         $settings = $this->getSettings(true);
         $settings['layouts'] = Presentation::layoutsFor($this->name);
+        $settings['column_defs'] = Columns::definitionsFor($this->name);
+        $settings['column_visible'] = Columns::visible($settings, $this->name);
 
         return view('widgets.settings.flapping-devices', $settings);
     }
