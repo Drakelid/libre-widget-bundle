@@ -214,7 +214,11 @@ Every widget exposes the same controls. Spot-check three widgets rather than all
 
 ### Gate 6i — per-widget enable/disable (1.7.0)
 
-- [ ] Overview -> Plugins -> Plugins Admin -> Settings shows all eleven widgets ticked.
+- [ ] Overview -> Plugins -> Plugins Admin -> Settings shows all eleven widgets ticked,
+      NOT a blank page reading "missing view". That symptom means the Settings hook was
+      filtered out -- check authorize() takes no injected parameters.
+- [ ] The plugin still shows as enabled afterwards. PluginManager::call() disables a
+      plugin whose hook throws, so a hook error can switch the whole thing off.
 - [ ] Unticking one and saving removes it from the dashboard "Add Widget" list without
       running any command by hand.
 - [ ] `php artisan route:list --path=ajax/dash` no longer lists the disabled slug.

@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.2] - 2026-08-21
+
+### Fixed
+
+- **The plugin settings page rendered "missing view".** The Settings hook was being
+  registered correctly, but silently filtered out before it ran.
+
+  `PluginManager::hooksFor()` invokes `authorize()` through the service container.
+  LibreNMS does not bind `App\\Models\\User`, so type-hinting it does not yield the
+  logged-in user -- the container satisfies the parameter by constructing a brand new,
+  empty `User`, on which every `can()` check fails. The hook was dropped, `call()`
+  returned an empty array, and `PluginSettingsController` fell back to its
+  `plugins.missing` view. Nothing appeared in the log, because nothing threw.
+
+  Core's own hook base classes carry the same signature and get away with it only
+  because their default `authorize()` returns true without consulting the user.
+
+  Both hooks now declare `authorize()` with no parameters. Authorisation is unchanged:
+  `PluginSettingsController` calls `authorize('plugin.admin')` before the hook runs, and
+  the route carries `can:plugin.admin` middleware.
+
 ## [1.7.1] - 2026-08-21
 
 ### Fixed

@@ -2,7 +2,6 @@
 
 namespace Drakelid\NmsDashWidgets\Hooks;
 
-use Illuminate\Contracts\Auth\Authenticatable;
 use LibreNMS\Interfaces\Plugins\Hooks\MenuEntryHook;
 
 /**
@@ -21,12 +20,17 @@ use LibreNMS\Interfaces\Plugins\Hooks\MenuEntryHook;
 class MenuEntry implements MenuEntryHook
 {
     /**
-     * Whether the current user may see the menu entry.
+     * Whether the menu entry should be shown.
+     *
+     * Deliberately takes no parameters. PluginManager calls this through the service
+     * container, and injecting a user here is a trap: LibreNMS does not bind
+     * App\Models\User, so the container would supply an empty one. See Settings.php
+     * for the full explanation.
      *
      * The entry links to core's plugin settings page, which enforces plugin.admin on
      * its own, so showing the link to any authenticated user is harmless.
      */
-    public function authorize(Authenticatable $user, array $settings = []): bool
+    public function authorize(): bool
     {
         return true;
     }

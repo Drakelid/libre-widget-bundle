@@ -2,7 +2,6 @@
 
 namespace Drakelid\NmsDashWidgets\Hooks;
 
-use App\Models\User;
 use Drakelid\NmsDashWidgets\Support\WidgetCatalog;
 use Illuminate\Contracts\Foundation\Application;
 use LibreNMS\Interfaces\Plugins\Hooks\SettingsHook;
@@ -19,10 +18,29 @@ use LibreNMS\Interfaces\Plugins\Hooks\SettingsHook;
  */
 class Settings implements SettingsHook
 {
-    /** Only plugin administrators may change which widgets exist. */
-    public function authorize(User $user): bool
+    /**
+     * Whether this hook should run.
+     *
+     * DO NOT type-hint App\Models\User here.
+     *
+     * PluginManager invokes this through the service container
+     * (`app()->call([$instance, 'authorize'], ...)`), and LibreNMS does not bind
+     * App\Models\User. The container therefore satisfies such a parameter by
+     * constructing a brand new, empty User -- on which every can() check fails. The
+     * hook is then filtered out of hooksFor(), call() returns an empty array, and
+     * PluginSettingsController falls back to its 'plugins.missing' view. The symptom
+     * is a blank settings page reading "missing view", with nothing in the log.
+     *
+     * Core's own hook base classes use that signature and get away with it only
+     * because their default implementation returns true without consulting the user.
+     *
+     * Authorisation is not being skipped: PluginSettingsController calls
+     * $this->authorize('plugin.admin') before this hook is ever reached, and the route
+     * carries can:plugin.admin middleware.
+     */
+    public function authorize(): bool
     {
-        return $user->can('plugin.admin');
+        return true;
     }
 
     /**
