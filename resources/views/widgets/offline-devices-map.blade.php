@@ -11,7 +11,14 @@
     sends a `refresh` event instead, which repopulates the markers without rebuilding the
     map and losing the user's pan and zoom.
 --}}
-<div id="nmsdw_map-{{ $widget_id }}" class="worldmap_widget" data-reload="false"
+{{--
+    Chrome is hidden with CSS rather than by removing the Leaflet controls. Several
+    engines add their layers from a loadjs callback, so a control removed at init time
+    can be repopulated moments later; a class on the container cannot race with that.
+--}}
+<div id="nmsdw_map-{{ $widget_id }}"
+     class="worldmap_widget {{ $hide_attribution ? 'nmsdw-map-noattr' : '' }} {{ $hide_zoom ? 'nmsdw-map-nozoom' : '' }}"
+     data-reload="false"
      style="width: 100%; height: 100%; min-height: 220px;"></div>
 
 <script type="application/javascript">

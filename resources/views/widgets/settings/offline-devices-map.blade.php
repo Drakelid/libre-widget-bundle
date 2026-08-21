@@ -101,6 +101,28 @@
 
     <div class="checkbox">
         <label>
+            <input type="hidden" name="hide_attribution" value="0">
+            <input type="checkbox" name="hide_attribution" value="1" @checked((bool) $hide_attribution)>
+            {{ __('Hide the attribution line') }}
+        </label>
+        <span class="help-block">
+            {{ __('Removes the "Leaflet | Powered by Esri ..." credit along the bottom of the map. Map providers ask for that credit in their terms of use, so this is your call to make.') }}
+        </span>
+    </div>
+
+    <div class="checkbox">
+        <label>
+            <input type="hidden" name="hide_zoom" value="0">
+            <input type="checkbox" name="hide_zoom" value="1" @checked((bool) $hide_zoom)>
+            {{ __('Hide the zoom buttons') }}
+        </label>
+        <span class="help-block">
+            {{ __('The + and - controls. Scroll wheel zoom still works after clicking the map, and pinch zoom is unaffected.') }}
+        </span>
+    </div>
+
+    <div class="checkbox">
+        <label>
             <input type="hidden" name="fit_to_markers" value="0">
             <input type="checkbox" name="fit_to_markers" value="1" @checked((bool) $fit_to_markers)>
             {{ __('Zoom to fit the markers on first load') }}

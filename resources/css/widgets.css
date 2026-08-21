@@ -1164,3 +1164,21 @@
         border-color: var(--nmsdw-border);
     }
 }
+
+/* ---------- map chrome ---------- */
+
+/*
+ * These are NOT scoped under .nmsdw-widget: the map container is the widget root, and
+ * Leaflet renders its controls as children of it rather than inside our markup.
+ *
+ * Hidden rather than removed so a control re-added by an engine's async layer callback
+ * stays hidden too.
+ */
+
+.worldmap_widget.nmsdw-map-noattr .leaflet-control-attribution {
+    display: none;
+}
+
+.worldmap_widget.nmsdw-map-nozoom .leaflet-control-zoom {
+    display: none;
+}

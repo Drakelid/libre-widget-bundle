@@ -44,6 +44,10 @@ class OfflineDevicesMapController extends BundleWidgetController
         'init_layer' => null,
         'group_radius' => null,
         'fit_to_markers' => '1',
+        // Both off by default: tile providers require attribution in their terms, so
+        // removing it is a deliberate choice for the operator to make.
+        'hide_attribution' => '0',
+        'hide_zoom' => '0',
     ];
 
     protected function normalizeSettings(array $settings): array
@@ -52,6 +56,8 @@ class OfflineDevicesMapController extends BundleWidgetController
         $settings['device_groups'] = DeviceGroups::ids($settings['device_groups'] ?? []);
         $settings['status'] = Cast::choice($settings['status'] ?? '0', self::STATUS_MODES, '0');
         $settings['fit_to_markers'] = Cast::bool($settings['fit_to_markers'] ?? true, true);
+        $settings['hide_attribution'] = Cast::bool($settings['hide_attribution'] ?? false, false);
+        $settings['hide_zoom'] = Cast::bool($settings['hide_zoom'] ?? false, false);
 
         // Null means "use the LibreNMS default", resolved in getView().
         $settings['init_lat'] = is_numeric($settings['init_lat'] ?? null) ? (float) $settings['init_lat'] : null;

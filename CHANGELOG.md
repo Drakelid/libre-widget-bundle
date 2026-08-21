@@ -7,6 +7,21 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [1.9.1] - 2026-08-21
 
+### Added
+
+- **Offline Devices Map: optional hiding of the attribution line and the zoom buttons.**
+  Two new settings, both off by default.
+
+  The credit along the bottom ("Leaflet | Powered by Esri | Esri Community Maps
+  Contributors, Maxar, ...") is long enough to eat a visible strip of a small dashboard
+  tile. Tile providers ask for that credit in their terms of use, so the widget does not
+  remove it on its own -- it is left to the operator to decide.
+
+  Both are hidden with CSS keyed off a class on the map container rather than by removing
+  the Leaflet controls. Some engines add their layers from a `loadjs` callback, so a
+  control removed at init time can be repopulated a moment later; a class cannot race
+  with that.
+
 ### Fixed
 
 - **Map layer selection appeared broken: only the default worked.** It was not broken --
