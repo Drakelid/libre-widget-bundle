@@ -185,6 +185,17 @@ Every widget exposes the same controls. Spot-check three widgets rather than all
 - [ ] Turning off "Show the heading" hides it regardless of the override.
 - [ ] Both survive a widget refresh and a page reload.
 
+### Gate 6g — flapping devices deduplication (1.6.1)
+
+- [ ] No device appears twice — once as a device and once as a nameless port.
+- [ ] The summary tiles agree with the rows: total state changes equals the sum of the
+      rows shown, and the device/port counts match what is listed.
+- [ ] Genuine port flaps still appear. Cross-check against:
+      `SELECT type, COUNT(*) FROM eventlog WHERE datetime > NOW() - INTERVAL 1 DAY GROUP BY type;`
+      — port activity is logged under type `interface`.
+- [ ] A port whose alias contains "Backup" or "Uplink" is not counted purely for that.
+- [ ] Every port row has a name; none render blank.
+
 ### Gate 7 — resilience
 
 - [ ] Invalid regex (e.g. `uplink(`) in the Uplink and Temperature widgets produces an

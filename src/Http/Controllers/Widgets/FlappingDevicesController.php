@@ -32,6 +32,12 @@ class FlappingDevicesController extends BundleWidgetController
 
     public const SHOW_TYPES = ['all', 'devices', 'ports'];
 
+    /*
+     * Word-anchored so "Backup" and "Uplink" do not count as "up" or "down".
+     * MariaDB 10.0.5+ and MySQL 8 both support \b in REGEXP.
+     */
+    private const UP_DOWN_REGEX = '\\b(up|down)\\b';
+
     protected $defaults = [
         'title' => null,
         'lookback_hours' => 24,
@@ -155,11 +161,23 @@ class FlappingDevicesController extends BundleWidgetController
             ->join('devices as d', 'e.device_id', '=', 'd.device_id')
             ->whereIntegerInRaw('e.device_id', $deviceIds)
             ->where('e.datetime', '>=', $since)
+            /*
+             * Device-level events only.
+             *
+             * The message fallback is confined to rows with no `reference`, which is
+             * what keeps this set disjoint from portFlaps(). Without that, a device
+             * status message was matched by BOTH queries and the device appeared twice
+             * with identical counts -- once as a device, once as a port with no name.
+             */
             ->where(function ($query): void {
                 $query->where('e.type', 'device')
-                    ->orWhere('e.message', 'REGEXP', 'Device status|status changed|changed status');
+                    ->orWhere(function ($query): void {
+                        $query->whereNull('e.reference')
+                            ->whereNotIn('e.type', ['interface', 'port'])
+                            ->where('e.message', 'REGEXP', 'Device status|status changed|changed status');
+                    });
             })
-            ->where('e.message', 'REGEXP', 'up|down')
+            ->where('e.message', 'REGEXP', self::UP_DOWN_REGEX)
             ->select([
                 'e.device_id',
                 DB::raw("'device' as item_type"),
@@ -185,17 +203,32 @@ class FlappingDevicesController extends BundleWidgetController
             ->leftJoin('ports as p', 'p.port_id', '=', 'e.reference')
             ->whereIntegerInRaw('e.device_id', $deviceIds)
             ->where('e.datetime', '>=', $since)
+            /*
+             * Port-level events only.
+             *
+             * LibreNMS logs port changes with type 'interface' -- NOT 'port' -- and puts
+             * the port_id in `reference` (see includes/polling/ports.inc.php). Matching
+             * on 'port' alone found nothing, so the old loose message regex was doing
+             * all the work and was also matching device events.
+             *
+             * Requiring a non-null reference and excluding type 'device' guarantees this
+             * set cannot overlap deviceFlaps().
+             */
+            ->whereNotNull('e.reference')
+            ->where('e.type', '!=', 'device')
             ->where(function ($query): void {
-                $query->where('e.type', 'port')
-                    ->orWhere('e.message', 'REGEXP', 'ifOperStatus|oper.*status|link.*up|link.*down|changed.*up|changed.*down');
+                $query->whereIn('e.type', ['interface', 'port'])
+                    ->orWhere('e.message', 'REGEXP', 'ifOperStatus|oper.*status|link.*(up|down)');
             })
-            ->where('e.message', 'REGEXP', 'up|down')
+            ->where('e.message', 'REGEXP', self::UP_DOWN_REGEX)
             ->select([
                 'e.device_id',
                 DB::raw("'port' as item_type"),
                 DB::raw('COALESCE(NULLIF(d.display, ""), NULLIF(d.sysName, ""), d.hostname) as device_name'),
                 DB::raw('COALESCE(p.port_id, 0) as port_id'),
-                DB::raw('COALESCE(NULLIF(p.ifAlias, ""), NULLIF(p.ifName, ""), NULLIF(p.ifDescr, ""), CONCAT("Port ref ", e.reference)) as port_name'),
+                // CONCAT() returns NULL if any argument is NULL, so a null reference used to
+                // produce a nameless row. The literal at the end guarantees a label.
+                DB::raw('COALESCE(NULLIF(p.ifAlias, ""), NULLIF(p.ifName, ""), NULLIF(p.ifDescr, ""), CONCAT("Port ref ", COALESCE(e.reference, "?")), "Unknown port") as port_name'),
                 DB::raw('COUNT(*) as changes'),
                 DB::raw('MIN(e.datetime) as first_change'),
                 DB::raw('MAX(e.datetime) as last_change'),

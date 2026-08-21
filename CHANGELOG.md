@@ -5,6 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2026-08-21
+
+### Fixed
+
+- **Flapping Devices counted the same events twice.** A device appeared as two entries
+  with identical change counts -- once correctly as a device, once as a nameless "port"
+  -- and the summary tiles were inflated to match.
+
+  Three faults combined:
+
+  1. LibreNMS logs port changes with eventlog type **`interface`**, not `port`
+     (`includes/polling/ports.inc.php`), so matching on `'port'` found nothing and the
+     loose message regex was doing all the work.
+  2. That fallback included `changed.*up|changed.*down`, which matches a device status
+     message such as "Device status changed to Up" -- so device events were pulled into
+     the port query as well.
+  3. `CONCAT("Port ref ", e.reference)` returns NULL when `reference` is NULL, which is
+     why the phantom row had no name.
+
+  The two queries are now mutually exclusive: device rows require type `device` or a
+  null `reference`; port rows require a non-null `reference` and a type other than
+  `device`. No eventlog row can satisfy both.
+
+- Port matching now recognises the real `interface` type, so genuine port flaps are
+  found by type rather than by guessing at message wording.
+- `up|down` matching is word-anchored, so an interface described as "Backup" or "Uplink"
+  no longer counts as an up/down event.
+- Port rows always carry a label, falling back to "Unknown port".
+
 ## [1.6.0] - 2026-08-21
 
 ### Added
