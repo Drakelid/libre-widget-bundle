@@ -4,6 +4,7 @@ namespace Drakelid\NmsDashWidgets\Hooks;
 
 use Drakelid\NmsDashWidgets\Support\WidgetCatalog;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Auth;
 use LibreNMS\Interfaces\Plugins\Hooks\SettingsHook;
 
 /**
@@ -19,28 +20,34 @@ use LibreNMS\Interfaces\Plugins\Hooks\SettingsHook;
 class Settings implements SettingsHook
 {
     /**
-     * Whether this hook should run.
+     * Only plugin administrators may see or change which widgets exist.
      *
-     * DO NOT type-hint App\Models\User here.
+     * This is defence in depth. LibreNMS already gates the page twice -- the route
+     * carries can:plugin.admin middleware, and PluginSettingsController calls
+     * authorize('plugin.admin') on both the GET and the POST that saves. The check here
+     * means a future change to either of those cannot silently expose the form.
      *
-     * PluginManager invokes this through the service container
-     * (`app()->call([$instance, 'authorize'], ...)`), and LibreNMS does not bind
-     * App\Models\User. The container therefore satisfies such a parameter by
-     * constructing a brand new, empty User -- on which every can() check fails. The
-     * hook is then filtered out of hooksFor(), call() returns an empty array, and
-     * PluginSettingsController falls back to its 'plugins.missing' view. The symptom
-     * is a blank settings page reading "missing view", with nothing in the log.
+     * DO NOT add a User parameter to this method.
      *
-     * Core's own hook base classes use that signature and get away with it only
-     * because their default implementation returns true without consulting the user.
+     * PluginManager invokes it through the service container
+     * (app()->call([$instance, 'authorize'], ...)), and LibreNMS does not bind
+     * App\Models\User. The container would satisfy such a parameter by constructing a
+     * brand new, empty User on which every can() check fails -- the hook is then
+     * filtered out of hooksFor(), call() returns an empty array, and
+     * PluginSettingsController falls back to its 'plugins.missing' view. The symptom is
+     * a blank settings page, with nothing in the log because nothing threw. Core's own
+     * hook base classes carry that signature and get away with it only because their
+     * default implementation returns true without consulting the user.
      *
-     * Authorisation is not being skipped: PluginSettingsController calls
-     * $this->authorize('plugin.admin') before this hook is ever reached, and the route
-     * carries can:plugin.admin middleware.
+     * The Auth facade resolves the genuinely authenticated user, so this works.
      */
     public function authorize(): bool
     {
-        return true;
+        $user = Auth::user();
+
+        // 'plugin.admin' is a spatie permission. AppServiceProvider's Gate::before
+        // grants every ability to the admin role, so administrators always pass.
+        return $user !== null && $user->can('plugin.admin');
     }
 
     /**

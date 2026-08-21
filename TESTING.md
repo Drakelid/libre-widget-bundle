@@ -112,6 +112,15 @@ SELECT COUNT(*) FROM ports WHERE ifAlias REGEXP 'kundeport|customer|kunde';
 
 - [ ] **Optical**: rows are ordered by *ascending* margin — the smallest margin first.
       Spot-check one row: margin must equal `sensor_current - sensor_limit_low`.
+- [ ] **Optical**: RX and TX are labelled correctly. Compare against the raw data:
+      `SELECT sensor_descr, sensor_current, sensor_limit_low FROM sensors WHERE sensor_class='dbm' AND sensor_deleted=0 LIMIT 20;`
+      A description containing "in" (e.g. "Tx power in dBm") must still read TX.
+- [ ] **Optical**: if the widget is empty it states how many readings were found and
+      which filter removed them, rather than only "nothing matched". Untick "Only show
+      optics that report a low threshold" and confirm rows appear if the optics report
+      power without limits.
+- [ ] **Optical**: values are plain dBm — no double scaling. A reading shown as
+      -7.50 dBm must equal `sensors.sensor_current` for that row.
 - [ ] **Optical**: a reading below its low threshold shows critical; one within the
       warning margin shows warning. Toggling "only show optics that report a low
       threshold" changes the row count.
@@ -227,7 +236,15 @@ Every widget exposes the same controls. Spot-check three widgets rather than all
       recovers when the widget is re-enabled.
 - [ ] "Select none" then Save disables everything; the picker shows none of ours and
       LibreNMS still works.
-- [ ] A non-admin cannot reach the settings page.
+- [ ] **A non-admin cannot reach the settings page.** Log in as a user without the
+      admin role and without the plugin.admin permission: /plugin/settings/nmsdashwidgets
+      must return 403, not the form.
+- [ ] **A non-admin cannot save either.** POST to the same URL as that user is
+      rejected; the enabled-widget list is unchanged afterwards.
+- [ ] A user granted only the plugin.admin permission (no admin role) CAN use the
+      page, confirming the check is on the permission and not on the role.
+- [ ] An admin still sees the form — the permission check must not repeat the 1.7.2
+      failure where authorize() denied everyone and the page read "missing view".
 - [ ] `plugin/settings/nmsdashwidgets` renders our settings, confirming the old route
       collision with core is gone.
 

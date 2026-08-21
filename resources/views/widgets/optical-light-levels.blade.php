@@ -12,9 +12,30 @@
     @include('widgets.partials.nmsdw-regex-warning', ['problems' => $regex_problems])
 
     @if(empty($rows))
+        {{--
+            An empty result has several very different causes, and "nothing matched" on
+            its own sends people looking in the wrong place. Say which filter consumed
+            the readings -- especially the low-threshold one, which is on by default and
+            discards every optic that reports power without limits.
+        --}}
         @include('widgets.partials.nmsdw-empty', [
-            'message' => __('No optical readings matched.'),
-            'hint' => __('This widget needs transceivers that report digital diagnostics (sensor class "dbm"). If nothing appears, the optics in use may not support DDM.'),
+            'message' => $total_seen === 0
+                ? __('No optical sensors found.')
+                : __('No optical readings passed the filters.'),
+            'hint' => $total_seen === 0
+                ? __('This widget needs transceivers that report digital diagnostics (sensor class "dbm"). The optics in use may not support DDM, or the device groups selected have none.')
+                : trim(implode(' ', array_filter([
+                    __(':count optical readings were found.', ['count' => $total_seen]),
+                    $skipped_no_limit > 0
+                        ? __(':count were hidden because the optic reports no low threshold — untick "Only show optics that report a low threshold" to see them.', ['count' => $skipped_no_limit])
+                        : null,
+                    $skipped_direction > 0
+                        ? __(':count did not identify as receive or transmit; try the combined mode.', ['count' => $skipped_direction])
+                        : null,
+                    $skipped_regex > 0
+                        ? __(':count were excluded by the regex filters.', ['count' => $skipped_regex])
+                        : null,
+                ]))),
         ])
     @else
         @if(in_array($layout, ['cards', 'compact', 'tiles'], true))
@@ -117,9 +138,17 @@
         </table>
     @endif
 
-        @if($skipped_no_limit > 0)
+        @if($skipped_no_limit > 0 || $skipped_direction > 0 || $skipped_regex > 0)
             <div class="nmsdw-note">
-                {{ __(':count readings hidden because the optic reports no low threshold.', ['count' => $skipped_no_limit]) }}
+                @if($skipped_no_limit > 0)
+                    {{ __(':count readings hidden because the optic reports no low threshold.', ['count' => $skipped_no_limit]) }}
+                @endif
+                @if($skipped_direction > 0)
+                    {{ __(':count hidden by the receive/transmit filter.', ['count' => $skipped_direction]) }}
+                @endif
+                @if($skipped_regex > 0)
+                    {{ __(':count hidden by the regex filters.', ['count' => $skipped_regex]) }}
+                @endif
             </div>
         @endif
     @endif

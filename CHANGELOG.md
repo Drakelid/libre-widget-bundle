@@ -5,6 +5,55 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.4] - 2026-08-21
+
+### Security
+
+- The Settings hook now checks `plugin.admin` itself before rendering the widget
+  enable/disable form, rather than relying solely on core's gating.
+
+  Enabling or disabling widgets was already restricted -- LibreNMS applies
+  `can:plugin.admin` middleware to both the settings route and the save route, and
+  `PluginSettingsController` calls `authorize('plugin.admin')` in both `__invoke()` and
+  `update()`. The check added here is defence in depth, so a future change to either of
+  those cannot silently expose the form.
+
+  The check uses the `Auth` facade. Injecting `App\Models\User` would not work:
+  LibreNMS does not bind that class, so the container supplies an empty instance whose
+  permission checks always fail -- the cause of the "missing view" bug fixed in 1.7.2.
+
+### Notes
+
+- `plugin.admin` is a spatie permission. `Gate::before` in core's AppServiceProvider
+  grants every ability to the `admin` role, so administrators pass automatically;
+  anyone else needs the permission granted explicitly.
+- The stored value is never trusted: `WidgetCatalog::enabled()` re-filters it to known
+  slugs on every read, so a tampered setting cannot register an arbitrary route.
+
+## [1.7.3] - 2026-08-21
+
+### Fixed
+
+- **Optical Light Levels: transmit readings could be labelled receive.** Direction was
+  detected from the sensor description with a pattern that matched a bare "in", and
+  receive was tested first -- so a sensor described as "Tx power in dBm" or "Laser
+  output power in dBm" came back as RX, and was then hidden entirely by the
+  transmit-only filter. Bare "in" and "out" no longer match; the explicit
+  input/output/recv/xmit wordings still do.
+- **An empty widget did not say why.** "Only show optics that report a low threshold"
+  is on by default, and plenty of optics report power without limits -- so every
+  reading could be discarded while the widget said only "No optical readings matched".
+  The count of discarded readings was calculated but rendered only when there were rows
+  to show it alongside. The empty state now reports how many readings were found and
+  which filter consumed them, and names the setting to change.
+
+### Notes
+
+- Verified against LibreNMS: divisor and multiplier are applied at poll time
+  (`includes/polling/functions.inc.php`), so `sensor_current` is already final dBm.
+  The widget correctly applies no further scaling, unlike the temperature widget which
+  needs it for vendors reporting deci-Celsius.
+
 ## [1.7.2] - 2026-08-21
 
 ### Fixed

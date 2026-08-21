@@ -105,30 +105,39 @@ class OpticalLightLevelsController extends BundleWidgetController
 
         $rows = [];
         $skippedNoLimit = 0;
+        $skippedDirection = 0;
+        $skippedRegex = 0;
+        $totalSeen = 0;
         $keep = $settings['sensor_count'];
         $highWater = max($keep * 4, 200);
 
         $query->chunkById(self::CHUNK_SIZE, function ($sensors) use (
-            &$rows, &$skippedNoLimit, $settings, $include, $exclude, $keep, $highWater
+            &$rows, &$skippedNoLimit, &$skippedDirection, &$skippedRegex, &$totalSeen,
+            $settings, $include, $exclude, $keep, $highWater
         ): void {
             foreach ($sensors as $sensor) {
+                $totalSeen++;
                 $direction = $this->direction($sensor);
 
                 if ($settings['mode'] === 'rx_only' && $direction !== 'rx') {
+                    $skippedDirection++;
                     continue;
                 }
 
                 if ($settings['mode'] === 'tx_only' && $direction !== 'tx') {
+                    $skippedDirection++;
                     continue;
                 }
 
                 $haystack = $this->haystack($sensor);
 
                 if ($include->isUsable() && ! $include->matches($haystack)) {
+                    $skippedRegex++;
                     continue;
                 }
 
                 if ($exclude->isUsable() && $exclude->matches($haystack)) {
+                    $skippedRegex++;
                     continue;
                 }
 
@@ -167,6 +176,9 @@ class OpticalLightLevelsController extends BundleWidgetController
             'rows' => $rows,
             'group_label' => DeviceGroups::namesFor($user, $groupIds, __('All accessible devices')),
             'skipped_no_limit' => $skippedNoLimit,
+            'skipped_direction' => $skippedDirection,
+            'skipped_regex' => $skippedRegex,
+            'total_seen' => $totalSeen,
             'regex_problems' => $this->regexProblems($include, $exclude),
         ]);
     }
@@ -233,18 +245,26 @@ class OpticalLightLevelsController extends BundleWidgetController
     }
 
     /**
-     * RX or TX, read from the sensor description. Vendors are inconsistent, so anything
-     * unrecognised stays null rather than being guessed at.
+     * RX or TX, read from the sensor description.
+     *
+     * Deliberately does NOT match a bare "in" or "out". Those appear in ordinary prose
+     * ("power in dBm"), and because receive is tested first a transmit sensor whose
+     * description happened to contain the word "in" was being labelled RX -- and then
+     * excluded by the tx_only filter. The explicit "input"/"output" alternatives cover
+     * the real vendor wording without that risk.
+     *
+     * Vendors are inconsistent, so anything unrecognised stays null rather than being
+     * guessed at; those readings only appear in the combined modes.
      */
     private function direction(Sensor $sensor): ?string
     {
         $text = strtolower(trim(($sensor->sensor_descr ?? '') . ' ' . ($sensor->sensor_type ?? '')));
 
-        if (preg_match('/\b(rx|receive|input|in)\b/', $text)) {
+        if (preg_match('/\b(rx|recv|receive|received|input)\b/', $text)) {
             return 'rx';
         }
 
-        if (preg_match('/\b(tx|transmit|output|out)\b/', $text)) {
+        if (preg_match('/\b(tx|xmit|transmit|transmitted|output)\b/', $text)) {
             return 'tx';
         }
 
