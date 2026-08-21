@@ -98,8 +98,17 @@ class BgpSessionHealthController extends BundleWidgetController
             foreach ($peers as $peer) {
                 $stats['total']++;
 
-                $adminUp = in_array(strtolower((string) $peer->bgpPeerAdminStatus), ['start', 'running'], true);
-                $established = strtolower((string) $peer->bgpPeerState) === 'established';
+                $admin = strtolower(trim((string) $peer->bgpPeerAdminStatus));
+                $established = strtolower(trim((string) $peer->bgpPeerState)) === 'established';
+
+                // 'start' is the standard BGP4-MIB value, 'running' Juniper's.
+                $adminUp = in_array($admin, ['start', 'running'], true);
+
+                // Only these mean someone deliberately shut the session. Anything else
+                // -- '', 'unknown', null -- means the device did not report an admin
+                // status, which is NOT the same as being shut. Core falls back to
+                // 'unknown' for Juniper and null for Huawei, so this is common.
+                $adminShut = in_array($admin, ['stop', 'halted', 'down', 'disabled'], true);
 
                 // bgpPeerFsmEstablishedTime is SECONDS SINCE the session came up,
                 // not a timestamp. A small value means it just re-established.
@@ -118,16 +127,21 @@ class BgpSessionHealthController extends BundleWidgetController
                     $stats['recent']++;
                 }
 
-                if ($established && ! $adminUp) {
-                    $status = 'unknown';
-                } elseif (! $established && $adminUp) {
+                /*
+                 * An established session is up, whatever the admin field says. Testing
+                 * admin status first meant a healthy peer on a device that does not
+                 * report bgpPeerAdminStatus was classed 'unknown' and labelled "shut".
+                 *
+                 * The fault case matches core's BgpPeer::scopeInAlarm(): admin up and
+                 * not established. Not established with no admin status is left as
+                 * unknown rather than alarmed, which is core's behaviour too.
+                 */
+                if ($established) {
+                    $status = $recent ? 'warning' : 'ok';
+                } elseif ($adminUp) {
                     $status = 'critical';
-                } elseif (! $adminUp) {
-                    $status = 'unknown';   // administratively shut: not a fault
-                } elseif ($recent) {
-                    $status = 'warning';
                 } else {
-                    $status = 'ok';
+                    $status = 'unknown';
                 }
 
                 if ($settings['show'] === 'established_only' && ! $established) {
@@ -143,6 +157,8 @@ class BgpSessionHealthController extends BundleWidgetController
                     'status' => $status,
                     'established' => $established,
                     'admin_up' => $adminUp,
+                    'admin_shut' => $adminShut,
+                    'state_label' => $peer->bgpPeerState ?: __('unknown'),
                     'uptime_seconds' => $uptime,
                     'recent' => $recent,
                     'prefix' => null,
@@ -187,6 +203,12 @@ class BgpSessionHealthController extends BundleWidgetController
      *
      * bgpPeers_cbgp carries *_delta and *_prev columns, so a sharp drop in accepted
      * prefixes is detectable without touching RRD.
+     *
+     * Counts are summed across address families, so a dual-stack peer reads as one
+     * session. Note the key is device_id + bgpPeerIdentifier: if the same peer address
+     * appears in more than one VRF on a device, their counts are summed together.
+     * bgpPeers identifies the VRF with vrf_id while bgpPeers_cbgp uses context_name,
+     * so there is no clean join between them.
      */
     private function attachPrefixCounts(array $rows, float $dropPercent): array
     {

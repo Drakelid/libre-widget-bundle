@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.5] - 2026-08-21
+
+### Fixed
+
+- **BGP Session Health mislabelled healthy peers as "shut".** Status was decided by
+  checking the admin field before the session state, so an established peer on a device
+  that does not report `bgpPeerAdminStatus` was classed `unknown` and rendered with a
+  "shut" label. Core defaults that field to `'unknown'` for Juniper and `null` for
+  Huawei, so this affected whole vendor families.
+
+  An established session is now treated as up regardless of the admin field. The fault
+  case still matches core's `BgpPeer::scopeInAlarm()`: admin up and not established.
+- The state column now shows the protocol state the device actually reported. "admin
+  shut" is only claimed when the admin status is explicitly `stop`, `halted`, `down` or
+  `disabled` -- never inferred from a missing value.
+- Summary tile relabelled "Shut / unknown", since it counts sessions that are not
+  established and not known to be admin-up.
+
+### Notes
+
+- Prefix counts are summed across address families by design. They are also summed
+  across VRFs where the same peer address appears twice on a device: `bgpPeers` keys the
+  VRF by `vrf_id` while `bgpPeers_cbgp` uses `context_name`, so there is no clean join.
+  Documented in the code.
+
 ## [1.7.4] - 2026-08-21
 
 ### Security

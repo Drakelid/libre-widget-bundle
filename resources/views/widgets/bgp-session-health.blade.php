@@ -12,7 +12,7 @@
         @include('widgets.partials.nmsdw-tile', ['value' => $summary['established'], 'label' => __('Established')])
         @include('widgets.partials.nmsdw-tile', ['value' => $summary['down'], 'label' => __('Down')])
         @include('widgets.partials.nmsdw-tile', ['value' => $summary['recent'], 'label' => __('Recently up')])
-        @include('widgets.partials.nmsdw-tile', ['value' => $summary['admin_down'], 'label' => __('Admin down')])
+        @include('widgets.partials.nmsdw-tile', ['value' => $summary['admin_down'], 'label' => __('Shut / unknown')])
     </div>
 
     @if(empty($rows))
@@ -31,7 +31,7 @@
             $records = collect($rows)->map(fn ($r) => [
                 'title' => e($r['peer']->device?->displayName() ?? __('Unknown device')),
                 'subtitle' => $r['peer']->bgpPeerIdentifier . ' · AS' . $r['peer']->bgpPeerRemoteAs,
-                'value' => $r['admin_up'] ? $r['peer']->bgpPeerState : __('shut'),
+                'value' => $r['state_label'],
                 'unit' => $r['peer']->astext ?: null,
                 'status' => $r['status'],
                 'meta' => array_values(array_filter([
@@ -84,10 +84,15 @@
                             @endif
                         </td>
                         <td class="nmsdw-nowrap">
+            {{-- Show the protocol state as reported. "shut" is only claimed when the
+                 device actually said the session is administratively down. --}}
                             @include('widgets.partials.nmsdw-pill', [
                                 'status' => $row['status'],
-                                'label' => $row['admin_up'] ? $peer->bgpPeerState : __('shut'),
+                                'label' => $row['state_label'],
                             ])
+                            @if($row['admin_shut'])
+                                <span class="nmsdw-sec">{{ __('admin shut') }}</span>
+                            @endif
                             @if($row['recent'])
                                 <span class="nmsdw-sec">{{ __('just re-established') }}</span>
                             @endif

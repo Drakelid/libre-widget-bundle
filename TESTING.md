@@ -126,8 +126,14 @@ SELECT COUNT(*) FROM ports WHERE ifAlias REGEXP 'kundeport|customer|kunde';
       threshold" changes the row count.
 - [ ] **Optical**: the transceiver column shows vendor/model for at least some rows —
       if always blank, the `device_id` + `entPhysicalIndex` join is not matching.
-- [ ] **BGP**: tile counts add up (`established + down + admin_down` = total). A session
-      that is administratively shut shows as `shut`, not as a fault.
+- [ ] **BGP**: tile counts add up (established + down + shut/unknown = total).
+- [ ] **BGP**: an established session reads as ok and shows its real state, even on
+      Juniper or Huawei where bgpPeerAdminStatus is unknown or null. It must NOT say
+      "shut". Cross-check:
+      `SELECT bgpPeerState, bgpPeerAdminStatus, COUNT(*) FROM bgpPeers GROUP BY 1,2;`
+- [ ] **BGP**: "admin shut" appears only where bgpPeerAdminStatus is genuinely stop
+      or halted, never where it is unknown or empty.
+- [ ] **BGP**: a peer that is admin-up but not established shows critical.
 - [ ] **BGP**: uptime reads as a sensible duration. `bgpPeerFsmEstablishedTime` is
       seconds since establishment; if it renders as a date in 1970, it is being treated
       as a timestamp.
