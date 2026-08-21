@@ -5,6 +5,76 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-08-21
+
+### Changed
+
+- **Device Group Down Count restyled**, with each display mode now a distinct layout
+  rather than variations on one row style:
+  - **List** (default, unchanged in shape) gains a proportion bar under the group name.
+  - **Cards** are real cards -- large count, health bar, healthy/total footer -- instead
+    of list rows re-flowed by CSS.
+  - **Compact** is now its own single-line layout with a status dot and inline bar,
+    rather than a squeezed list. Existing widgets set to `compact` will look different.
+  - **Summary** renders a proper hero with the share of the estate affected and the
+    worst group named, instead of a banner plus a stray line of text.
+  - **Tiles** (new) -- dense colour-coded squares, sized for wall displays with many
+    groups.
+  - **Bars** (new) -- ranked comparison where bar length is the proportion of the group
+    that is down. A raw count hides this: 2 of 2 down is an outage, 22 of 500 is not.
+- The banner is now a hero block carrying totals and, for a single group, that group's
+  own figures. `background_color` and `text_color` drive it through CSS custom
+  properties instead of inline styles on every child.
+
+### Added
+
+- `sort` setting: selection order (default, unchanged), most devices down, largest share
+  down, or name.
+- `hide_healthy` setting. Header and hero totals still cover every selected group, so
+  hiding rows never changes the numbers.
+
+### Notes
+
+- Both new settings default to the previous behaviour, and the five original
+  `display_mode` values keep working, so saved widgets render as before -- except
+  `compact`, which is deliberately a new layout.
+
+## [1.2.0] - 2026-08-21
+
+Five widgets covering the ISP gaps identified in `docs/future-spec.md`: optical,
+routing and power were absent from both this bundle and LibreNMS core.
+
+### Added
+
+- **Optical Light Levels** (`optical-light-levels`) — transceiver RX/TX levels ranked by
+  margin above the low threshold, joined to the `transceivers` table for vendor, model
+  and wavelength. LibreNMS polls `sensor_class = 'dbm'` and ships nothing that displays
+  it; this bundle's temperature widget explicitly excludes transceiver sensors, so the
+  data was being collected and discarded. Ranks on the LOW limits, unlike the
+  temperature widget.
+- **BGP Session Health** (`bgp-session-health`) — sessions administratively up but not
+  established, recently re-established, or with a sharp drop in accepted prefixes.
+  Prefix counts and deltas come from `bgpPeers_cbgp`, so a collapsing table is visible
+  without touching RRD.
+- **Site Power and Battery** (`site-power-status`) — battery runtime, charge and DC
+  voltage aggregated per device or per location. Severity for `state` sensors uses
+  LibreNMS's own `state_generic_value` rather than pattern-matching vendor text.
+- **Customer Ports Down** (`customer-port-status`) — customer-facing ports that are
+  administratively up but operationally down, matched on an `ifAlias` convention.
+- **Poller Health** (`poller-health`) — devices whose data has gone stale and poller
+  nodes that stopped reporting. A dashboard showing all-green because polling stopped is
+  worse than a blank one.
+
+### Notes
+
+- All five stream with `chunkById`, scope every query with `hasAccess()`, and reuse the
+  existing `Cast`, `Format`, `SafeRegex` and `DeviceGroups` helpers.
+- Optical, BGP and power depend on what the installation collects. Empty output means
+  the data is not being polled, not that the widget is broken — see the verification
+  queries in `docs/future-spec.md`.
+- Capacity planning (95th percentile) was deliberately not built: it needs RRD reads per
+  port, which requires a cache table and a scheduled job. Still listed as future work.
+
 ## [1.0.1] - 2026-08-20
 
 ### Fixed

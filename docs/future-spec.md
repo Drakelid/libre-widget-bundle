@@ -4,9 +4,12 @@ Candidate widgets to extend this bundle, chosen by looking at what an ISP NOC ne
 against what LibreNMS already collects and what the current six widgets and LibreNMS
 core already show.
 
-**Nothing here is built.** This is a shortlist with the groundwork done: data sources
-verified against the LibreNMS 26.8.1 schema, effort estimated, and open questions
-flagged. Read [`SPEC.md`](SPEC.md) first — it documents how widget discovery works and
+**Status: sections 3, 4, 5 and 6 were implemented in 1.2.0.** What remains unbuilt is
+capacity planning (§6, high effort) and the deployment-conditional widgets (§7).
+
+This document is kept as the rationale behind those widgets and as the shortlist for
+what comes next. Data sources were verified against the LibreNMS 26.8.1 schema, effort
+estimated, and open questions flagged. Read [`SPEC.md`](SPEC.md) first — it documents how widget discovery works and
 the constraints any new widget in this bundle must satisfy.
 
 ---
@@ -34,6 +37,8 @@ inventory. For an ISP the notable absences are **optical**, **routing** and **po
 ---
 
 ## 3. Priority 1 — Optical Light Levels (DDM)
+
+> **Built in 1.2.0** as `optical-light-levels`.
 
 **Proposed slug:** `optical-light-levels`
 
@@ -105,6 +110,8 @@ If `dbm_sensors` is near zero, this widget is not worth building.
 
 ## 4. Priority 2 — BGP Session Health
 
+> **Built in 1.2.0** as `bgp-session-health`.
+
 **Proposed slug:** `bgp-session-health`
 
 ### Why
@@ -163,6 +170,8 @@ An empty table means this widget has nothing to show.
 
 ## 5. Priority 3 — Site Power and Battery
 
+> **Built in 1.2.0** as `site-power-status`.
+
 **Proposed slug:** `site-power-status`
 
 ### Why
@@ -217,7 +226,8 @@ GROUP BY sensor_class ORDER BY 2 DESC;
 
 ## 6. Second tier
 
-Worth building, but only after the three above.
+> **Customer Port Status and Poller Health were built in 1.2.0** as
+> `customer-port-status` and `poller-health`. Capacity planning remains unbuilt.
 
 ### Customer Port Status — `customer-port-status`
 

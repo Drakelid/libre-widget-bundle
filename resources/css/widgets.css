@@ -232,53 +232,110 @@
     flex-wrap: wrap;
 }
 
-/* ---------- status rows (device group down count) ---------- */
+/* ---------- device group down count ---------- */
 
-.nmsdw-widget .nmsdw-banner {
+.nmsdw-widget .nmsdw-dgdc-header {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    padding: 14px;
-    border-radius: 10px;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
     margin-bottom: 10px;
-    border: 1px solid var(--nmsdw-border);
 }
 
-.nmsdw-widget .nmsdw-banner-icon {
+/* Hero -------------------------------------------------------------------- */
+
+.nmsdw-widget .nmsdw-hero {
+    --nmsdw-hero-bg: var(--nmsdw-surface);
+    --nmsdw-hero-fg: inherit;
+
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    border: 1px solid var(--nmsdw-border);
+    text-decoration: none;
+    color: inherit;
+    background: var(--nmsdw-surface);
+}
+
+.nmsdw-widget a.nmsdw-hero:hover {
+    text-decoration: none;
+    color: inherit;
+    filter: brightness(1.06);
+}
+
+.nmsdw-widget .nmsdw-hero-down {
+    background: var(--nmsdw-hero-bg);
+    color: var(--nmsdw-hero-fg);
+    border-color: transparent;
+}
+
+.nmsdw-widget .nmsdw-hero-icon {
     width: 46px;
     height: 46px;
+    flex: none;
     border-radius: 999px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 26px;
     font-weight: 700;
-    flex: none;
+    line-height: 1;
+    color: #fff;
+    background: var(--nmsdw-ok);
 }
 
-.nmsdw-widget .nmsdw-banner-value {
+.nmsdw-widget .nmsdw-hero-down .nmsdw-hero-icon {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.nmsdw-widget .nmsdw-hero-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.nmsdw-widget .nmsdw-hero-value {
+    display: block;
     font-size: 40px;
     font-weight: 700;
     line-height: 1;
 }
 
-.nmsdw-widget .nmsdw-banner-label {
+.nmsdw-widget .nmsdw-hero-label {
+    display: block;
     font-size: 10.5px;
     letter-spacing: .08em;
     text-transform: uppercase;
-    opacity: .9;
+    opacity: .85;
+    margin-top: 3px;
+    word-break: break-word;
 }
+
+.nmsdw-widget .nmsdw-hero-meta {
+    flex: none;
+    text-align: right;
+    font-size: 10.5px;
+    opacity: .8;
+    white-space: nowrap;
+}
+
+.nmsdw-widget .nmsdw-hero-meta span {
+    display: block;
+}
+
+/* Shared bar fills -------------------------------------------------------- */
+
+.nmsdw-widget .nmsdw-bar-ok { background: var(--nmsdw-ok); }
+.nmsdw-widget .nmsdw-bar-down { background: var(--nmsdw-crit); }
+
+/* List (default) ---------------------------------------------------------- */
 
 .nmsdw-widget .nmsdw-rows {
     display: flex;
     flex-direction: column;
     gap: 6px;
-}
-
-.nmsdw-widget .nmsdw-cards {
-    display: grid;
-    gap: 8px;
 }
 
 .nmsdw-widget .nmsdw-row {
@@ -310,16 +367,30 @@
     background: color-mix(in srgb, var(--nmsdw-crit) 12%, transparent);
 }
 
-.nmsdw-widget .nmsdw-row-warning {
-    border-left-color: var(--nmsdw-warn);
-    background: color-mix(in srgb, var(--nmsdw-warn) 12%, transparent);
+.nmsdw-widget .nmsdw-row-main {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .nmsdw-widget .nmsdw-row-name {
+    display: block;
     font-weight: 700;
-    flex: 1 1 auto;
-    min-width: 0;
     word-break: break-word;
+}
+
+.nmsdw-widget .nmsdw-row-bar {
+    display: block;
+    height: 4px;
+    margin-top: 5px;
+    border-radius: 999px;
+    background: var(--nmsdw-track);
+    overflow: hidden;
+}
+
+.nmsdw-widget .nmsdw-row-fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
 }
 
 .nmsdw-widget .nmsdw-row-count {
@@ -327,6 +398,7 @@
     font-weight: 700;
     line-height: 1;
     flex: none;
+    font-variant-numeric: tabular-nums;
 }
 
 .nmsdw-widget .nmsdw-row-totals {
@@ -337,17 +409,266 @@
     white-space: nowrap;
 }
 
-/* card variant stacks instead of running across */
-.nmsdw-widget .nmsdw-cards .nmsdw-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    border-left-width: 1px;
-    border-top-width: 4px;
+/* Cards ------------------------------------------------------------------- */
+
+.nmsdw-widget .nmsdw-cardgrid {
+    display: grid;
+    gap: 8px;
 }
 
-.nmsdw-widget .nmsdw-cards .nmsdw-row-totals {
-    text-align: left;
+.nmsdw-widget .nmsdw-gcard {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--nmsdw-border);
+    border-top-width: 3px;
+    background: var(--nmsdw-surface);
+    text-decoration: none;
+    color: inherit;
+    min-width: 0;
+}
+
+.nmsdw-widget a.nmsdw-gcard:hover {
+    background: var(--nmsdw-surface-strong);
+    color: inherit;
+    text-decoration: none;
+}
+
+.nmsdw-widget .nmsdw-gcard-ok { border-top-color: var(--nmsdw-ok); }
+.nmsdw-widget .nmsdw-gcard-down { border-top-color: var(--nmsdw-crit); }
+
+.nmsdw-widget .nmsdw-gcard-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--nmsdw-muted);
+    word-break: break-word;
+    line-height: 1.2;
+}
+
+.nmsdw-widget .nmsdw-gcard-value {
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.05;
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+}
+
+.nmsdw-widget .nmsdw-gcard-down .nmsdw-gcard-value { color: var(--nmsdw-crit); }
+.nmsdw-widget .nmsdw-gcard-ok .nmsdw-gcard-value { color: var(--nmsdw-ok); }
+
+.nmsdw-widget .nmsdw-gcard-unit {
+    font-size: 9.5px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--nmsdw-muted);
+}
+
+.nmsdw-widget .nmsdw-gcard-bar {
+    display: block;
+    width: 100%;
+    height: 4px;
+    margin: 7px 0 5px;
+    border-radius: 999px;
+    background: var(--nmsdw-track);
+    overflow: hidden;
+}
+
+.nmsdw-widget .nmsdw-gcard-fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+}
+
+.nmsdw-widget .nmsdw-gcard-meta {
+    font-size: 10px;
+    color: var(--nmsdw-muted);
+}
+
+/* Tiles ------------------------------------------------------------------- */
+
+.nmsdw-widget .nmsdw-tilegrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+    gap: 6px;
+}
+
+.nmsdw-widget .nmsdw-gtile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1 / 1;
+    padding: 6px 4px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #fff;
+    text-align: center;
+    min-width: 0;
+    background: var(--nmsdw-ok);
+}
+
+.nmsdw-widget a.nmsdw-gtile:hover {
+    color: #fff;
+    text-decoration: none;
+    filter: brightness(1.1);
+}
+
+.nmsdw-widget .nmsdw-gtile-down { background: var(--nmsdw-crit); }
+
+.nmsdw-widget .nmsdw-gtile-value {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.nmsdw-widget .nmsdw-gtile-name {
+    font-size: 9px;
+    margin-top: 4px;
+    opacity: .9;
+    line-height: 1.15;
+    width: 100%;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+}
+
+/* Bars -------------------------------------------------------------------- */
+
+.nmsdw-widget .nmsdw-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.nmsdw-widget .nmsdw-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 4px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.nmsdw-widget a.nmsdw-bar-row:hover {
+    background: var(--nmsdw-surface);
+    color: inherit;
+    text-decoration: none;
+}
+
+.nmsdw-widget .nmsdw-bar-label {
+    flex: 0 0 32%;
+    min-width: 0;
+    font-size: 11.5px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nmsdw-widget .nmsdw-bar-track {
+    flex: 1 1 auto;
+    height: 14px;
+    border-radius: 4px;
+    background: var(--nmsdw-track);
+    overflow: hidden;
+}
+
+.nmsdw-widget .nmsdw-bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+    transition: width .3s ease;
+}
+
+.nmsdw-widget .nmsdw-bar-value {
+    flex: none;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    text-align: right;
+    min-width: 62px;
+    font-variant-numeric: tabular-nums;
+}
+
+.nmsdw-widget .nmsdw-bar-value .nmsdw-sec {
+    display: inline;
+    margin-left: 4px;
+    font-weight: 400;
+}
+
+/* Compact ----------------------------------------------------------------- */
+
+.nmsdw-widget .nmsdw-clist {
+    display: flex;
+    flex-direction: column;
+}
+
+.nmsdw-widget .nmsdw-crow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--nmsdw-border);
+    text-decoration: none;
+    color: inherit;
+    font-size: 12px;
+}
+
+.nmsdw-widget a.nmsdw-crow:hover {
+    background: var(--nmsdw-surface);
+    color: inherit;
+    text-decoration: none;
+}
+
+.nmsdw-widget .nmsdw-cdot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--nmsdw-ok);
+}
+
+.nmsdw-widget .nmsdw-crow-down .nmsdw-cdot { background: var(--nmsdw-crit); }
+
+.nmsdw-widget .nmsdw-cname {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nmsdw-widget .nmsdw-cbar {
+    flex: 0 0 60px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--nmsdw-track);
+    overflow: hidden;
+}
+
+.nmsdw-widget .nmsdw-cfill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+}
+
+.nmsdw-widget .nmsdw-cvalue {
+    flex: none;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.nmsdw-widget .nmsdw-cvalue .nmsdw-sec {
+    display: inline;
+    font-weight: 400;
 }
 
 /* ---------- temperature cards ---------- */
@@ -411,12 +732,23 @@
     font-size: 20px;
 }
 
-.nmsdw-widget.nmsdw-compact .nmsdw-banner {
-    padding: 9px;
+.nmsdw-widget.nmsdw-compact .nmsdw-hero {
+    padding: 9px 11px;
+    gap: 10px;
 }
 
-.nmsdw-widget.nmsdw-compact .nmsdw-banner-value {
+.nmsdw-widget.nmsdw-compact .nmsdw-hero-value {
     font-size: 30px;
+}
+
+.nmsdw-widget.nmsdw-compact .nmsdw-hero-icon {
+    width: 34px;
+    height: 34px;
+    font-size: 20px;
+}
+
+.nmsdw-widget.nmsdw-compact .nmsdw-gcard-value {
+    font-size: 24px;
 }
 
 .nmsdw-widget.nmsdw-compact .nmsdw-table > tbody > tr > td,

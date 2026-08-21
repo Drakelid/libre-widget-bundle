@@ -19,4 +19,19 @@ return [
     'recently-added-devices' => [
         'title' => 'Recently Added Devices',
     ],
+    'optical-light-levels' => [
+        'title' => 'Optical Light Levels',
+    ],
+    'bgp-session-health' => [
+        'title' => 'BGP Session Health',
+    ],
+    'site-power-status' => [
+        'title' => 'Site Power and Battery',
+    ],
+    'customer-port-status' => [
+        'title' => 'Customer Ports Down',
+    ],
+    'poller-health' => [
+        'title' => 'Poller Health',
+    ],
 ];

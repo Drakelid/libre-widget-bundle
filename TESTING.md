@@ -98,6 +98,59 @@ Use a real restricted account, not a code reading.
       filter matches what production actually stores. Compare the temperature widget's
       output before/after toggling **Temperature source**.
 
+### Gate 6b — the 1.2.0 ISP widgets
+
+These depend on what the installation collects. Run the data checks FIRST; an empty
+result means the widget has nothing to show, not that it is broken.
+
+```sql
+SELECT COUNT(*) FROM sensors WHERE sensor_class='dbm' AND sensor_deleted=0;
+SELECT COUNT(*) FROM bgpPeers;
+SELECT sensor_class, COUNT(*) FROM sensors WHERE sensor_deleted=0 GROUP BY 1 ORDER BY 2 DESC;
+SELECT COUNT(*) FROM ports WHERE ifAlias REGEXP 'kundeport|customer|kunde';
+```
+
+- [ ] **Optical**: rows are ordered by *ascending* margin — the smallest margin first.
+      Spot-check one row: margin must equal `sensor_current - sensor_limit_low`.
+- [ ] **Optical**: a reading below its low threshold shows critical; one within the
+      warning margin shows warning. Toggling "only show optics that report a low
+      threshold" changes the row count.
+- [ ] **Optical**: the transceiver column shows vendor/model for at least some rows —
+      if always blank, the `device_id` + `entPhysicalIndex` join is not matching.
+- [ ] **BGP**: tile counts add up (`established + down + admin_down` = total). A session
+      that is administratively shut shows as `shut`, not as a fault.
+- [ ] **BGP**: uptime reads as a sensible duration. `bgpPeerFsmEstablishedTime` is
+      seconds since establishment; if it renders as a date in 1970, it is being treated
+      as a timestamp.
+- [ ] **Power**: switching group-by between device and location changes the row count.
+      Devices with no location must not collapse into one fake site.
+- [ ] **Power**: a device reporting a `state` sensor with `state_generic_value` of 2
+      shows critical. Verify against one real sensor.
+- [ ] **Customer ports**: every row is genuinely admin-up and oper-down. Compare with
+      `SELECT COUNT(*) FROM ports WHERE ifAdminStatus='up' AND ifOperStatus='down'`.
+- [ ] **Customer ports**: "down for" shows a dash rather than a wrong duration where
+      `ifLastChange` is unusable (it is relative to device uptime and resets on reboot).
+- [ ] **Poller health**: stop a poller, or set the stale threshold below the polling
+      interval, and confirm devices appear. Confirm the counts sum to the device total.
+
+### Gate 6c — Device Group Down Count layouts (1.3.0)
+
+- [ ] Each of the seven display modes renders its own distinct layout: auto, list,
+      cards, bars, tiles, compact, summary.
+- [ ] **Auto** switches layout as the widget is resized: summary when very narrow,
+      list at moderate width, cards when wide.
+- [ ] **Bars**: bar length reflects the *proportion* down, not the raw count. A group
+      with 2 of 2 down must show a longer bar than one with 22 of 500.
+- [ ] **Tiles**: long group names truncate to two lines without breaking the square.
+- [ ] **Hide healthy** removes rows but leaves the header and hero totals unchanged.
+- [ ] **Sort** options reorder correctly; "the order I selected them" still matches the
+      chip order in the settings form.
+- [ ] The alert colour settings still drive the hero when devices are down.
+- [ ] A single selected group shows the hero with that group's own totals and no
+      redundant one-row list beneath it.
+- [ ] Saved widgets from before 1.3.0 render unchanged, except `compact` which is
+      intentionally a new layout.
+
 ### Gate 7 — resilience
 
 - [ ] Invalid regex (e.g. `uplink(`) in the Uplink and Temperature widgets produces an

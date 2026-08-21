@@ -13,7 +13,7 @@
             </div>
             <div class="panel-body">
                 <p>
-                    {{ __('This plugin adds six widgets to the dashboard widget picker. Add them from a dashboard using "Add Widget".') }}
+                    {{ __('This plugin adds eleven widgets to the dashboard widget picker. Add them from a dashboard using "Add Widget".') }}
                 </p>
 
                 <table class="table table-striped table-condensed">
@@ -54,6 +54,31 @@
                             <td><strong>{{ __('Recently Added Devices') }}</strong></td>
                             <td><code>recently-added-devices</code></td>
                             <td>{{ __('Most recently added devices, newest first.') }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>{{ __('Optical Light Levels') }}</strong></td>
+                            <td><code>optical-light-levels</code></td>
+                            <td>{{ __('Transceiver RX/TX levels ranked by margin above the low threshold. Requires optics that report DDM.') }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>{{ __('BGP Session Health') }}</strong></td>
+                            <td><code>bgp-session-health</code></td>
+                            <td>{{ __('Sessions that are administratively up but not established, recently re-established, or losing prefixes.') }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>{{ __('Site Power and Battery') }}</strong></td>
+                            <td><code>site-power-status</code></td>
+                            <td>{{ __('Battery runtime, charge and DC voltage per device or per site.') }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>{{ __('Customer Ports Down') }}</strong></td>
+                            <td><code>customer-port-status</code></td>
+                            <td>{{ __('Customer-facing ports that are administratively up but operationally down.') }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>{{ __('Poller Health') }}</strong></td>
+                            <td><code>poller-health</code></td>
+                            <td>{{ __('Devices whose data has gone stale, and poller nodes that stopped reporting.') }}</td>
                         </tr>
                     </tbody>
                 </table>

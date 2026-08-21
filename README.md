@@ -1,6 +1,6 @@
 # LibreNMS Dashboard Widget Bundle
 
-Six custom dashboard widgets for LibreNMS, packaged as a plugin.
+Eleven dashboard widgets for LibreNMS, packaged as a plugin.
 
 These widgets previously lived as hand-placed files inside the LibreNMS tree, with their
 routes added directly to core's `routes/web.php`. The LibreNMS 26.8.1 upgrade overwrote
@@ -17,6 +17,29 @@ unreachable. Packaging them as a plugin means upgrades no longer break them.
 | Top Device Temperatures | `top-device-temperatures` | Hottest devices by temperature sensor, one row per device |
 | Flapping Devices / Unstable Links | `flapping-devices` | Devices and ports that changed state repeatedly in a lookback window |
 | Recently Added Devices | `recently-added-devices` | Most recently added devices, newest first |
+
+### ISP additions (1.2.0)
+
+Chosen from the gap analysis in [`docs/future-spec.md`](docs/future-spec.md).
+
+| Widget | Key | What it shows |
+|---|---|---|
+| Optical Light Levels | `optical-light-levels` | Transceiver RX/TX levels ranked by margin above the low threshold |
+| BGP Session Health | `bgp-session-health` | Sessions admin-up but not established, recently re-established, or losing prefixes |
+| Site Power and Battery | `site-power-status` | Battery runtime, charge and DC voltage, per device or per site |
+| Customer Ports Down | `customer-port-status` | Customer-facing ports admin-up but operationally down |
+| Poller Health | `poller-health` | Devices whose data has gone stale, and pollers that stopped reporting |
+
+Three of these depend on what your installation actually collects. Check before
+expecting output:
+
+```sql
+SELECT COUNT(*) FROM sensors WHERE sensor_class='dbm' AND sensor_deleted=0;   -- optical
+SELECT COUNT(*) FROM bgpPeers;                                                -- BGP
+SELECT sensor_class, COUNT(*) FROM sensors WHERE sensor_deleted=0 GROUP BY 1; -- power
+```
+
+An empty result means the widget has nothing to display — it is not misconfigured.
 
 The widget keys are permanent identifiers stored in `users_widgets.widget`. **Never
 rename one** — existing dashboard placements reference them by key.
@@ -133,6 +156,12 @@ Carried over deliberately from the original widgets:
 - **Flapping Devices uses the scalar `device_group` key**, which is a reserved LibreNMS
   settings key. Core appends the group name to the widget title as a result. Do not
   change it to the plural `device_groups` used by the other widgets.
+- **Optical Light Levels ranks by the LOW threshold**, unlike the temperature widget
+  which uses the high side. For optics it is falling receive power that predicts failure.
+- **`bgpPeerFsmEstablishedTime` is seconds since the session came up**, not a timestamp.
+- **`ports.ifLastChange` is SNMP TimeTicks relative to device uptime**, not wall clock,
+  and resets on reboot. Customer Ports Down shows a dash rather than a wrong duration
+  when the value is unusable.
 
 ## Changes from the original implementation
 

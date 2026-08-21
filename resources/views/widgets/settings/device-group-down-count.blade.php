@@ -17,14 +17,16 @@
     <div class="form-group">
         <label for="display_mode-{{ $id }}" class="control-label">{{ __('Display mode') }}</label>
         <select class="form-control" name="display_mode" id="display_mode-{{ $id }}">
-            <option value="auto" @selected($display_mode === 'auto')>{{ __('Auto') }}</option>
-            <option value="cards" @selected($display_mode === 'cards')>{{ __('Cards') }}</option>
-            <option value="list" @selected($display_mode === 'list')>{{ __('List') }}</option>
-            <option value="compact" @selected($display_mode === 'compact')>{{ __('Compact') }}</option>
-            <option value="summary" @selected($display_mode === 'summary')>{{ __('Summary') }}</option>
+            <option value="auto" @selected($display_mode === 'auto')>{{ __('Auto (follow widget size)') }}</option>
+            <option value="list" @selected($display_mode === 'list')>{{ __('List — name, status, count and totals') }}</option>
+            <option value="cards" @selected($display_mode === 'cards')>{{ __('Cards — a tile per group with a health bar') }}</option>
+            <option value="bars" @selected($display_mode === 'bars')>{{ __('Bars — ranked, bar length is the share down') }}</option>
+            <option value="tiles" @selected($display_mode === 'tiles')>{{ __('Tiles — dense colour squares, good for wall displays') }}</option>
+            <option value="compact" @selected($display_mode === 'compact')>{{ __('Compact — one dense line per group') }}</option>
+            <option value="summary" @selected($display_mode === 'summary')>{{ __('Summary — the total only') }}</option>
         </select>
         <span class="help-block">
-            {{ __('Auto works well for most dashboards. List is best for narrow widgets. Summary is best for very small widgets.') }}
+            {{ __('Auto picks summary, list or cards from the widget width. Bars compare groups by the proportion that is down, which a raw count hides: 2 of 2 is an outage, 22 of 500 is not.') }}
         </span>
     </div>
 
@@ -37,10 +39,31 @@
     </div>
 
     <div class="form-group">
+        <label for="sort-{{ $id }}" class="control-label">{{ __('Sort groups by') }}</label>
+        <select class="form-control" name="sort" id="sort-{{ $id }}">
+            <option value="selection" @selected($sort === 'selection')>{{ __('The order I selected them') }}</option>
+            <option value="most_down" @selected($sort === 'most_down')>{{ __('Most devices down') }}</option>
+            <option value="percent" @selected($sort === 'percent')>{{ __('Largest share of the group down') }}</option>
+            <option value="name" @selected($sort === 'name')>{{ __('Name') }}</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="hide_healthy-{{ $id }}" class="control-label">{{ __('Hide healthy groups') }}</label>
+        <select class="form-control" name="hide_healthy" id="hide_healthy-{{ $id }}">
+            <option value="0" @selected(! $hide_healthy)>{{ __('No') }}</option>
+            <option value="1" @selected($hide_healthy)>{{ __('Yes') }}</option>
+        </select>
+        <span class="help-block">
+            {{ __('Totals in the header and banner always cover every selected group, hidden or not.') }}
+        </span>
+    </div>
+
+    <div class="form-group">
         <label for="card_min_width-{{ $id }}" class="control-label">{{ __('Minimum card width') }}</label>
         <input type="number" step="1" min="120" max="320" class="form-control"
                name="card_min_width" id="card_min_width-{{ $id }}" value="{{ $card_min_width }}">
-        <span class="help-block">{{ __('Used by card layouts. Recommended: 150-220.') }}</span>
+        <span class="help-block">{{ __('Used by the Cards layout. Recommended: 150-220. Tiles size themselves.') }}</span>
     </div>
 
     <div class="form-group">
