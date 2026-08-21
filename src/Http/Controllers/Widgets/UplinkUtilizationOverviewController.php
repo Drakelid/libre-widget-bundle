@@ -120,6 +120,9 @@ class UplinkUtilizationOverviewController extends BundleWidgetController
                 'ports.port_id',
                 'ports.device_id',
                 'ports.ifName',
+                // ifIndex is not displayed directly: Port::getLabel() appends it on
+                // OSes configured with the 'ifindex' setting, and x-port-link calls that.
+                'ports.ifIndex',
                 'ports.ifDescr',
                 'ports.ifAlias',
                 'ports.ifSpeed',
@@ -196,7 +199,8 @@ class UplinkUtilizationOverviewController extends BundleWidgetController
 
         $memberships = DeviceGroups::membershipMap(
             $groupIds,
-            array_values(array_unique(array_map(fn (array $r): int => (int) $r['port']->device_id, $rows)))
+            array_values(array_unique(array_map(fn (array $r): int => (int) $r['port']->device_id, $rows))),
+            $user
         );
 
         foreach ($rows as $index => $row) {

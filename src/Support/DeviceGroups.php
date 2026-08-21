@@ -204,9 +204,21 @@ final class DeviceGroups
      * @param  list<int>  $deviceIds
      * @return Collection<int, string>
      */
-    public static function membershipMap(array $groupIds, array $deviceIds): Collection
+    public static function membershipMap(array $groupIds, array $deviceIds, ?User $user = null): Collection
     {
-        if (empty($groupIds) || empty($deviceIds)) {
+        if (empty($deviceIds)) {
+            return collect();
+        }
+
+        // An empty selection means "all accessible devices", not "no groups". Filtering
+        // by an empty id list returned nothing, so the Device group column -- which is
+        // on by default -- rendered blank on every row until a group was picked. With
+        // nothing selected, name every group the device belongs to that the user can see.
+        if (empty($groupIds)) {
+            $groupIds = self::selectable($user)->pluck('id')->all();
+        }
+
+        if (empty($groupIds)) {
             return collect();
         }
 

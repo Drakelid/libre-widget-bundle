@@ -97,6 +97,9 @@ class CustomerPortStatusController extends BundleWidgetController
             ->isValid()
             ->select([
                 'ports.port_id', 'ports.device_id', 'ports.ifName', 'ports.ifDescr',
+                // Port::getLabel() appends ifIndex on OSes configured for it, and
+                // x-port-link calls getLabel(); without the column the suffix vanished.
+                'ports.ifIndex',
                 'ports.ifAlias', 'ports.ifSpeed', 'ports.ifOperStatus', 'ports.ifAdminStatus',
                 'ports.ifLastChange', 'ports.poll_time',
             ])
@@ -153,7 +156,8 @@ class CustomerPortStatusController extends BundleWidgetController
 
         $memberships = DeviceGroups::membershipMap(
             $groupIds,
-            array_values(array_unique(array_map(fn (array $r): int => (int) $r['port']->device_id, $rows)))
+            array_values(array_unique(array_map(fn (array $r): int => (int) $r['port']->device_id, $rows))),
+            $user
         );
 
         foreach ($rows as $i => $row) {

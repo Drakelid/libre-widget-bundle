@@ -9,6 +9,19 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **The "Device group" column was blank whenever no group was selected.** It is on by
+  default in Customer Ports Down and Top Bandwidth, and the default group selection is
+  "all accessible devices" -- so out of the box the column showed nothing at all.
+  `membershipMap()` filtered by the selected group ids and an empty selection filtered
+  everything out. With nothing selected it now names every group the device belongs to
+  that the user is allowed to see. Affects Customer Ports Down, Top Bandwidth and Uplink
+  Utilisation.
+
+- **Port labels lost their ifIndex suffix.** `Port::getLabel()` appends `ifIndex` on any
+  OS configured with the `ifindex` setting, and `x-port-link` calls it -- but the column
+  was missing from the select in all three port widgets, so the suffix silently
+  disappeared on those platforms.
+
 - **Optical Light Levels: "All optical readings" did nothing.** The setting offered four
   modes but the code only ever branched on the two direction filters, so "All optical
   readings" ranked by margin exactly like "Worst margin" and the two were identical. It

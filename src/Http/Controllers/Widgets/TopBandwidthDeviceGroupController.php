@@ -86,6 +86,9 @@ class TopBandwidthDeviceGroupController extends BundleWidgetController
                 'ports.port_id',
                 'ports.device_id',
                 'ports.ifName',
+                // ifIndex is not displayed directly: Port::getLabel() appends it on
+                // OSes configured with the 'ifindex' setting, and x-port-link calls that.
+                'ports.ifIndex',
                 'ports.ifDescr',
                 'ports.ifAlias',
                 'ports.ifType',
@@ -108,7 +111,8 @@ class TopBandwidthDeviceGroupController extends BundleWidgetController
 
         $memberships = DeviceGroups::membershipMap(
             $groupIds,
-            $ports->pluck('device_id')->unique()->values()->all()
+            $ports->pluck('device_id')->unique()->values()->all(),
+            $user
         );
 
         // Bars are proportional to the busiest port on screen.
