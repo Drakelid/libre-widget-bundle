@@ -32,7 +32,8 @@ Run against a LibreNMS 26.8.1 instance with a copy of production data.
       `ajax/dash`, alongside core's existing widget routes.
 - [ ] All six appear in the dashboard **Add Widget** picker, with correct titles.
 - [ ] `group-world-map` does **not** appear.
-- [ ] The plugin page at **Dashboard Widget Bundle** renders and shows the version.
+- [ ] The plugin settings page renders and shows the version beside the heading and
+      in the footer. It must read e.g. "v1.7.6", not "vv1.7.6" and not blank.
 
 ### Gate 2 — the settings toggle round trip
 

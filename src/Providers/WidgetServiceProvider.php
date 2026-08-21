@@ -5,6 +5,7 @@ namespace Drakelid\NmsDashWidgets\Providers;
 use App\Models\Plugin;
 use Drakelid\NmsDashWidgets\Hooks\MenuEntry;
 use Drakelid\NmsDashWidgets\Hooks\Settings;
+use Drakelid\NmsDashWidgets\Support\Version;
 use Drakelid\NmsDashWidgets\Support\WidgetCatalog;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
@@ -70,54 +71,6 @@ class WidgetServiceProvider extends ServiceProvider
                 ]);
             }
         });
-    }
-
-    /**
-     * The installed package version, for display on the plugin page.
-     *
-     * Read from composer's runtime data rather than a hardcoded "version" field in
-     * composer.json. That field is discouraged for VCS-published packages precisely
-     * because it drifts from the git tag -- v1.1.0 shipped while composer.json still
-     * claimed 1.0.1. The git tag is now the single source of truth.
-     */
-    private function version(): string
-    {
-        if (class_exists(\Composer\InstalledVersions::class)) {
-            try {
-                $version = (string) \Composer\InstalledVersions::getPrettyVersion(
-                    'drakelid/librenms-dashboard-widgets'
-                );
-
-                return $this->formatVersion($version);
-            } catch (\Throwable) {
-                // Not installed via composer (development checkout); fall through.
-            }
-        }
-
-        return 'dev';
-    }
-
-    /**
-     * Return a display-ready version string.
-     *
-     * getPrettyVersion() reports the git tag verbatim, so a tag of `v1.1.2` comes back
-     * with its own leading "v". The template must therefore NOT add another one -- that
-     * produced "vv1.1.2". Prefixing is done here instead, and only for versions that
-     * start with a digit, so branch installs stay readable as "dev-main" rather than
-     * becoming "vdev-main".
-     */
-    private function formatVersion(string $version): string
-    {
-        $version = trim($version);
-
-        if ($version === '') {
-            return 'dev';
-        }
-
-        // Normalise away any leading v, then add exactly one back for numeric versions.
-        $bare = preg_replace('/^v(?=\d)/i', '', $version) ?? $version;
-
-        return preg_match('/^\d/', $bare) === 1 ? 'v' . $bare : $bare;
     }
 
     /**
@@ -201,7 +154,7 @@ class WidgetServiceProvider extends ServiceProvider
         // Make the package version available to the plugin's own pages. Registered in
         // boot() rather than register() so the view factory is guaranteed to exist.
         View::composer(self::PLUGIN_NAME . '::*', function ($view): void {
-            $view->with('nmsdashwidgets_version', $this->version());
+            $view->with('nmsdashwidgets_version', Version::current());
         });
 
         /*

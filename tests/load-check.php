@@ -53,6 +53,9 @@ $classes = [
     'Drakelid\\NmsDashWidgets\\Support\\Format',
     'Drakelid\\NmsDashWidgets\\Support\\SafeRegex',
     'Drakelid\\NmsDashWidgets\\Support\\Temperature',
+    'Drakelid\\NmsDashWidgets\\Support\\Version',
+    'Drakelid\\NmsDashWidgets\\Support\\WidgetCatalog',
+    'Drakelid\\NmsDashWidgets\\Hooks\\Settings',
 ];
 
 /**
@@ -69,6 +72,15 @@ $contracts = [
     'Drakelid\\NmsDashWidgets\\Providers\\WidgetServiceProvider' => [
         'extends' => 'Illuminate\\Support\\ServiceProvider',
         'methods' => ['register', 'boot'],
+    ],
+    'Drakelid\\NmsDashWidgets\\Hooks\\Settings' => [
+        'implements' => ['LibreNMS\\Interfaces\\Plugins\\Hooks\\SettingsHook'],
+        'methods' => ['authorize', 'handle'],
+        // authorize() must take NO parameters. PluginManager resolves them from the
+        // container, and LibreNMS does not bind App\Models\User -- injecting one yields
+        // an empty model whose can() checks always fail, which silently drops the hook
+        // and renders 'missing view'. See Hooks/Settings.php.
+        'no_params' => ['authorize'],
     ],
 ];
 
@@ -134,6 +146,25 @@ foreach ($contracts as $class => $rules) {
         if (! method_exists($class, $method)) {
             $failures++;
             printf("  [FAIL] %s is missing method %s()\n", $class, $method);
+        }
+    }
+
+    foreach ($rules['no_params'] ?? [] as $method) {
+        if (! method_exists($class, $method)) {
+            continue;
+        }
+
+        $count = (new ReflectionMethod($class, $method))->getNumberOfParameters();
+
+        if ($count > 0) {
+            $failures++;
+            printf(
+                "  [FAIL] %s::%s() declares %d parameter(s); it must declare none, or the"
+                    . " plugin manager injects an empty model and the hook is dropped\n",
+                $class,
+                $method,
+                $count
+            );
         }
     }
 }

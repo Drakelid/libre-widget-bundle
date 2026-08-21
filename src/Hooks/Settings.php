@@ -2,6 +2,7 @@
 
 namespace Drakelid\NmsDashWidgets\Hooks;
 
+use Drakelid\NmsDashWidgets\Support\Version;
 use Drakelid\NmsDashWidgets\Support\WidgetCatalog;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Auth;
@@ -60,6 +61,9 @@ class Settings implements SettingsHook
             'content_view' => $pluginName . '::settings',
             'settings' => [
                 'plugin_name' => $pluginName,
+                // Passed explicitly rather than relying on the view composer, so the
+                // page still shows a version if that registration ever changes.
+                'version' => Version::current(),
                 'widgets' => WidgetCatalog::all(),
                 'enabled' => WidgetCatalog::enabled($settings),
                 'setting_key' => WidgetCatalog::SETTING,

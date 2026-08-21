@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.6] - 2026-08-21
+
+### Fixed
+
+- **Plugin version missing from the settings page.** When the plugin's own admin page
+  was replaced by LibreNMS's native settings page in 1.7.0, the version display did not
+  come with it. It now appears beside the heading and again in the footer next to the
+  package name, which is what you want to hand over when reporting a problem.
+
+### Changed
+
+- Version handling moved into `Support/Version.php`. The provider's view composer and
+  the settings hook now share one implementation instead of the provider owning a
+  private copy, and the settings page receives the value explicitly rather than relying
+  on the composer being registered.
+
+### Added
+
+- Unit tests for version formatting, covering the case that shipped broken once (a tag
+  already carrying its own "v" gaining a second), branch installs, pre-release tags and
+  idempotency.
+- `tests/load-check.php` now also loads `Version`, `WidgetCatalog` and the `Settings`
+  hook, and asserts that hook `authorize()` methods declare **no parameters** -- the
+  mistake behind the "missing view" bug in 1.7.2. CI fails the build if one reappears.
+
 ## [1.7.5] - 2026-08-21
 
 ### Fixed

@@ -11,7 +11,10 @@
 <div style="margin: 15px;">
     <div class="panel panel-default">
         <div class="panel-heading">
-            <h3 class="panel-title">{{ __('Dashboard Widget Bundle') }}</h3>
+            <h3 class="panel-title">
+                {{ __('Dashboard Widget Bundle') }}
+                <small>{{ $version ?? ($nmsdashwidgets_version ?? '') }}</small>
+            </h3>
         </div>
 
         <div class="panel-body">
@@ -87,6 +90,11 @@
             </p>
             <p>{{ __('If the list still looks wrong, run this on the LibreNMS server:') }}</p>
             <pre>cd /opt/librenms &amp;&amp; sudo -u librenms php artisan route:clear</pre>
+
+            <p class="text-muted" style="margin-top: 10px;">
+                {{ __('Package') }}: <code>drakelid/librenms-dashboard-widgets</code>
+                {{ $version ?? ($nmsdashwidgets_version ?? '') }}
+            </p>
         </div>
     </div>
 </div>
