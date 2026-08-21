@@ -34,6 +34,17 @@
         </select>
     </div>
 
+    <div class="checkbox">
+        <label>
+            <input type="hidden" name="battery_only" value="0">
+            <input type="checkbox" name="battery_only" value="1" @checked((bool) $battery_only)>
+            {{ __('Only devices with battery data') }}
+        </label>
+        <span class="help-block">
+            {{ __('On by default. A charge or runtime sensor is required, so routers and switches that merely report a PSU voltage do not fill the widget.') }}
+        </span>
+    </div>
+
     <div class="form-group">
         <label for="min_runtime_minutes-{{ $id }}" class="control-label">{{ __('Minimum battery runtime') }}</label>
         <div class="input-group">

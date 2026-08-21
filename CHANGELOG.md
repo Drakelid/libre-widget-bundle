@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.2] - 2026-08-21
+
+### Fixed
+
+- **Site Power and Battery displayed nonsense.** Cards showed runtimes like
+  "-8715378 min" and every one was painted critical.
+
+  Two separate problems:
+
+  1. **Implausible readings were displayed verbatim.** A lot of UPS hardware reports
+     battery runtime as an unsigned SNMP counter that arrives as a large negative
+     number. Because that is below any sane threshold, it also drove every card to
+     critical. Runtime, charge, voltage and power readings are now range checked
+     (runtime 0 to 30 days, charge 0-100, voltage above 0) and discarded when outside
+     it, rather than shown or used to decide severity. Discarded readings are counted
+     and reported in a footer note.
+  2. **The scope was far too wide.** Any device reporting a voltage counted as a "site",
+     which on this network meant 1827 of them rather than the UPS fleet. A new
+     "Only devices with battery data" setting, on by default, requires a charge or
+     runtime sensor before a device appears. Turn it off to include anything reporting
+     voltage or power.
+
+- The header now reports how many sites have battery data, rather than how many devices
+  had any power-related sensor at all.
+
 ## [1.6.1] - 2026-08-21
 
 ### Fixed

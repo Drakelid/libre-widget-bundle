@@ -33,6 +33,22 @@ class SitePowerStatusController extends BundleWidgetController
     /** Sensor classes that describe power delivery and battery reserve. */
     private const CLASSES = ['charge', 'runtime', 'voltage', 'current', 'power', 'state'];
 
+    /** Classes that actually indicate a battery, as opposed to any powered device. */
+    private const BATTERY_CLASSES = ['charge', 'runtime'];
+
+    /*
+     * Plausibility bounds.
+     *
+     * Devices do report nonsense here. Runtime in particular arrives as a large negative
+     * number on a lot of UPS hardware -- an unsigned SNMP counter read as signed -- which
+     * would otherwise render as "-8715378 min" and, being below any sane threshold, paint
+     * every card critical. A reading outside these bounds is treated as absent rather
+     * than displayed or used to decide severity.
+     */
+    private const MAX_RUNTIME_MINUTES = 43200;   // 30 days; longer is not a battery
+    private const MAX_VOLTAGE = 1000.0;
+    private const MAX_POWER_WATTS = 1000000.0;
+
     private const CHUNK_SIZE = 1000;
 
     protected $defaults = [
@@ -45,6 +61,9 @@ class SitePowerStatusController extends BundleWidgetController
         'voltage_high' => null,
         'group_by' => 'device',
         'limit' => 25,
+        // Without this, every device reporting a PSU voltage counts as a "site" --
+        // which on a real network is most of the estate, not the UPS fleet.
+        'battery_only' => '1',
 
         // Layout and styling, shared by every widget in the bundle.
         // PRESENTATION_DEFAULTS -- values come from Presentation::defaults().
@@ -65,6 +84,7 @@ class SitePowerStatusController extends BundleWidgetController
         $settings['min_runtime_minutes'] = Cast::clampedInt($settings['min_runtime_minutes'] ?? 30, 0, 10080, 30);
         $settings['min_charge_percent'] = Cast::clampedFloat($settings['min_charge_percent'] ?? 50, 0, 100, 50);
         $settings['limit'] = Cast::clampedInt($settings['limit'] ?? 25, 1, 200, 25);
+        $settings['battery_only'] = Cast::bool($settings['battery_only'] ?? true, true);
 
         $settings['voltage_low'] = is_numeric($settings['voltage_low'] ?? null)
             ? (float) $settings['voltage_low'] : null;
@@ -122,7 +142,13 @@ class SitePowerStatusController extends BundleWidgetController
                     'states' => [],
                     'device_count' => 0,
                     'devices' => [],
+                    'has_battery' => false,
+                    'suspect' => 0,
                 ];
+
+                if (in_array($sensor->sensor_class, self::BATTERY_CLASSES, true)) {
+                    $sites[$key]['has_battery'] = true;
+                }
 
                 $deviceId = (int) $sensor->device_id;
 
@@ -136,6 +162,12 @@ class SitePowerStatusController extends BundleWidgetController
         }, 'sensors.sensor_id', 'sensor_id');
 
         $rows = array_values($sites);
+
+        if ($settings['battery_only']) {
+            $rows = array_values(array_filter($rows, fn (array $r): bool => $r['has_battery']));
+        }
+
+        $suspectSites = count(array_filter($rows, fn (array $r): bool => $r['suspect'] > 0));
 
         foreach ($rows as $i => $row) {
             $rows[$i]['status'] = $this->classify($row, $settings);
@@ -156,6 +188,8 @@ class SitePowerStatusController extends BundleWidgetController
         return view('widgets.site-power-status', $settings + $this->shared($settings) + [
             'rows' => $rows,
             'site_count' => count($sites),
+            'battery_sites' => count(array_filter($sites, fn (array $r): bool => $r['has_battery'])),
+            'suspect_sites' => $suspectSites,
             'group_label' => DeviceGroups::namesFor($user, $groupIds, __('All accessible devices')),
         ]);
     }
@@ -192,25 +226,48 @@ class SitePowerStatusController extends BundleWidgetController
 
         switch ($sensor->sensor_class) {
             case 'runtime':
-                // Vendors report runtime in minutes; keep the lowest across the site.
+                // LibreNMS stores runtime in minutes (Sensor::formatValue multiplies by
+                // 60 to display it). Anything negative or absurdly long is a bad read.
+                if ($value < 0 || $value > self::MAX_RUNTIME_MINUTES) {
+                    $site['suspect']++;
+                    break;
+                }
+
+                // Keep the lowest across the site: the first battery to die is the one
+                // that matters.
                 $site['runtime_minutes'] = $site['runtime_minutes'] === null
                     ? $value
                     : min($site['runtime_minutes'], $value);
                 break;
 
             case 'charge':
+                if ($value < 0 || $value > 100) {
+                    $site['suspect']++;
+                    break;
+                }
+
                 $site['charge_percent'] = $site['charge_percent'] === null
                     ? $value
                     : min($site['charge_percent'], $value);
                 break;
 
             case 'voltage':
+                if ($value <= 0 || $value > self::MAX_VOLTAGE) {
+                    $site['suspect']++;
+                    break;
+                }
+
                 $site['voltage'] = $site['voltage'] === null
                     ? $value
                     : min($site['voltage'], $value);
                 break;
 
             case 'power':
+                if ($value < 0 || $value > self::MAX_POWER_WATTS) {
+                    $site['suspect']++;
+                    break;
+                }
+
                 $site['load_watts'] = max((float) ($site['load_watts'] ?? 0), $value);
                 break;
 

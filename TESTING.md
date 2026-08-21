@@ -196,6 +196,18 @@ Every widget exposes the same controls. Spot-check three widgets rather than all
 - [ ] A port whose alias contains "Backup" or "Uplink" is not counted purely for that.
 - [ ] Every port row has a name; none render blank.
 
+### Gate 6h — site power plausibility (1.6.2)
+
+- [ ] No card shows a negative or absurd runtime. Cross-check the raw data:
+      `SELECT device_id, sensor_descr, sensor_current FROM sensors WHERE sensor_class='runtime' AND sensor_deleted=0 ORDER BY sensor_current LIMIT 20;`
+      Negative values there must not reach the widget.
+- [ ] Cards are not uniformly critical. A site on mains with a healthy battery reads ok.
+- [ ] With "Only devices with battery data" on, the count reflects the UPS and rectifier
+      fleet, not the whole estate. Turning it off increases the count.
+- [ ] Where readings were discarded, the footer says so and gives a count.
+- [ ] A site with a valid runtime below the threshold still goes critical — the
+      validation must not have suppressed genuine alarms.
+
 ### Gate 7 — resilience
 
 - [ ] Invalid regex (e.g. `uplink(`) in the Uplink and Temperature widgets produces an
