@@ -91,7 +91,9 @@ class CustomerPortStatusController extends BundleWidgetController
         }
 
         $query = Port::hasAccess($user)
-            ->with(['device' => fn ($q) => $q->select('device_id', 'hostname', 'sysName', 'status', 'os', 'display')])
+            // uptime is required by downSeconds(): ifLastChange is relative to it.
+            // Leaving it out made every "Down for" cell render as a dash.
+            ->with(['device' => fn ($q) => $q->select('device_id', 'hostname', 'sysName', 'status', 'os', 'display', 'uptime')])
             ->isValid()
             ->select([
                 'ports.port_id', 'ports.device_id', 'ports.ifName', 'ports.ifDescr',

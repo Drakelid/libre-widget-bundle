@@ -14,7 +14,7 @@
         @include('widgets.partials.nmsdw-tile', ['value' => $summary['total'], 'label' => __('Devices')])
         @include('widgets.partials.nmsdw-tile', ['value' => $summary['fresh'], 'label' => __('Fresh')])
         @include('widgets.partials.nmsdw-tile', ['value' => $summary['stale'], 'label' => __('Stale')])
-        @include('widgets.partials.nmsdw-tile', ['value' => $summary['never_polled'], 'label' => __('Never polled')])
+        @include('widgets.partials.nmsdw-tile', ['value' => $summary['never_polled'], 'label' => __('of those, never polled')])
     </div>
 
     @if($show_pollers && $pollers->isNotEmpty())

@@ -31,6 +31,9 @@ return [
     'customer-port-status' => [
         'title' => 'Customer Ports Down',
     ],
+    'offline-devices-map' => [
+        'title' => 'Offline Devices Map',
+    ],
     'poller-health' => [
         'title' => 'Poller Health',
     ],

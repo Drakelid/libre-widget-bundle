@@ -96,10 +96,10 @@
             {{-- One group: the hero already says everything a list would repeat. --}}
             @if($show_group_totals)
                 @include('widgets.partials.nmsdw-meter', [
-                    'percent' => $singleGroup->down_percent,
-                    'status' => $statusOf($singleGroup) === 'down' ? 'critical' : 'ok',
-                    'caption' => __(':down of :total devices down', [
-                        'down' => $singleGroup->down_count,
+                    'percent' => $singleGroup->health_percent,
+                    'status' => $singleGroup->down_count > 0 ? 'warning' : 'ok',
+                    'caption' => __(':healthy of :total devices up', [
+                        'healthy' => $singleGroup->healthy_count,
                         'total' => $singleGroup->total_count,
                     ]),
                 ])
@@ -148,8 +148,8 @@
                         <span class="nmsdw-gcard-value">{{ $group->down_count }}</span>
                         <span class="nmsdw-gcard-unit">{{ __('down') }}</span>
                         <span class="nmsdw-gcard-bar">
-                            <span class="nmsdw-gcard-fill nmsdw-bar-{{ $statusOf($group) }}"
-                                  style="width: {{ min(100, max(2, $group->down_percent)) }}%"></span>
+                            <span class="nmsdw-gcard-fill nmsdw-bar-{{ $group->down_count > 0 ? 'part' : 'ok' }}"
+                                  style="width: {{ max(0, min(100, $group->health_percent)) }}%"></span>
                         </span>
                         @if($show_group_totals)
                             <span class="nmsdw-gcard-meta">
@@ -171,8 +171,8 @@
                         <span class="nmsdw-cdot"></span>
                         <span class="nmsdw-cname">{{ $group->name }}</span>
                         <span class="nmsdw-cbar">
-                            <span class="nmsdw-cfill nmsdw-bar-{{ $statusOf($group) }}"
-                                  style="width: {{ min(100, max(2, $group->down_percent)) }}%"></span>
+                            <span class="nmsdw-cfill nmsdw-bar-{{ $group->down_count > 0 ? 'part' : 'ok' }}"
+                                  style="width: {{ max(0, min(100, $group->health_percent)) }}%"></span>
                         </span>
                         <span class="nmsdw-cvalue">{{ $group->down_count }}<span class="nmsdw-sec">/{{ $group->total_count }}</span></span>
                     </a>
@@ -187,9 +187,10 @@
                         <span class="nmsdw-row-main">
                             <span class="nmsdw-row-name">{{ $group->name }}</span>
                             @if($show_group_totals)
+                                {{-- Health meter: full bar means every device in the group is up. --}}
                                 <span class="nmsdw-row-bar">
-                                    <span class="nmsdw-row-fill nmsdw-bar-{{ $statusOf($group) }}"
-                                          style="width: {{ min(100, max(2, $group->down_percent)) }}%"></span>
+                                    <span class="nmsdw-row-fill nmsdw-bar-{{ $group->down_count > 0 ? 'part' : 'ok' }}"
+                                          style="width: {{ max(0, min(100, $group->health_percent)) }}%"></span>
                                 </span>
                             @endif
                         </span>

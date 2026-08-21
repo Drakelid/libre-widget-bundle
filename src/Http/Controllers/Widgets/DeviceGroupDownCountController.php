@@ -131,6 +131,10 @@ class DeviceGroupDownCountController extends BundleWidgetController
             $group->healthy_count = max(0, $total - $down);
             $group->down_percent = $total > 0 ? ($down / $total) * 100 : 0.0;
 
+            // The row bar reads as a health meter: full means everything is up. A group
+            // with no devices counts as healthy rather than showing an empty bar.
+            $group->health_percent = $total > 0 ? ($group->healthy_count / $total) * 100 : 100.0;
+
             return $group;
         });
 

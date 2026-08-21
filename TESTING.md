@@ -255,7 +255,36 @@ Every widget exposes the same controls. Spot-check three widgets rather than all
 - [ ] `plugin/settings/nmsdashwidgets` renders our settings, confirming the old route
       collision with core is gone.
 
-### Gate 7 — resilience
+### Gate 6j - 1.8.0 items
+
+- [ ] **Add Widget** dropdown shows a divider and a "Custom Widgets" heading with all
+      enabled bundle widgets beneath it. Core's own widgets keep their original order.
+      Works on a dashboard with none of our widgets placed yet.
+- [ ] **Customer Ports Down**: "Down for" shows real durations, not dashes. Cross-check
+      one row against `SELECT ifLastChange FROM ports WHERE port_id=?` and the device's
+      uptime.
+- [ ] **Device Group Down Count**: a fully healthy group shows a FULL green bar. A group
+      with some devices down shows a partial amber bar sized to the share still up.
+- [ ] **Site Power**: switching group-by to location does not slow the widget noticeably;
+      check the query count if a debug bar is available.
+- [ ] **Poller Health**: Devices = Fresh + Stale, and Never polled is a subset of Stale.
+
+### Gate 6k - Offline Devices Map (1.9.0)
+
+- [ ] Selecting two device groups plots devices from BOTH. Compare the marker count with
+      `SELECT COUNT(DISTINCT d.device_id) FROM devices d
+         JOIN device_group_device g ON g.device_id = d.device_id
+         JOIN locations l ON l.id = d.location_id
+        WHERE g.device_group_id IN (?, ?) AND d.status = 0 AND d.disabled = 0;`
+- [ ] A device belonging to two selected groups appears once, not twice.
+- [ ] No groups selected plots every accessible device.
+- [ ] "Down only" is the default and shows only offline devices; switching to
+      "Up and down" adds green markers.
+- [ ] Panning then waiting for a refresh does not reset the view.
+- [ ] A restricted user sees only devices they may access.
+- [ ] Blank latitude/longitude/zoom/layer fall back to the LibreNMS defaults.
+
+### Gate 7 - resilience
 
 - [ ] Invalid regex (e.g. `uplink(`) in the Uplink and Temperature widgets produces an
       inline warning, not a 500 and not a silently empty widget.

@@ -62,6 +62,11 @@ final class WidgetCatalog
             'Customer Ports Down',
             'Customer-facing ports that are administratively up but operationally down.',
         ],
+        'offline-devices-map' => [
+            'OfflineDevicesMapController',
+            'Offline Devices Map',
+            'Geographic map of devices, filtered by any number of device groups. The built-in World Map accepts only one.',
+        ],
         'poller-health' => [
             'PollerHealthController',
             'Poller Health',

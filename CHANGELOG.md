@@ -5,6 +5,67 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-08-21
+
+### Added
+
+- **Offline Devices Map** (`offline-devices-map`) -- a geographic device map that accepts
+  **any number of device groups**.
+
+  LibreNMS ships a World Map widget, but its group setting is a single scalar: the blade
+  casts `(int) $device_group` and the map data endpoint filters with
+  `where('device_group_id', $group_id)`. There is no way to show two groups at once.
+
+  This widget reuses core's own `maps.getdevices` endpoint and Leaflet stack, so markers,
+  clustering, maintenance colouring and popups behave exactly like the built-in map. It
+  issues one request per selected group and merges the responses; because they are keyed
+  by device_id, a device in two selected groups is plotted once.
+
+  Defaults to showing DOWN devices only, which is the usual reason to put a map on a NOC
+  dashboard. Latitude, longitude, zoom, layer and clustering radius all fall back to the
+  LibreNMS defaults when left blank.
+
+### Notes
+
+- This is the one case where duplicating a core widget is justified: it adds capability
+  core does not have, unlike the retired `group-world-map` which only changed defaults.
+- The map keeps `data-reload="false"`, so a refresh repopulates markers without
+  rebuilding the map and losing the pan and zoom.
+- Device permissions are enforced twice: group ids are filtered to what the user may see,
+  and core's endpoint applies its own device scoping on top.
+
+## [1.8.0] - 2026-08-21
+
+### Added
+
+- Bundle widgets are now grouped under a **Custom Widgets** heading in the dashboard's
+  "Add Widget" dropdown. Core builds that list flat and escapes the titles, so a plugin
+  cannot supply a heading through them; the grouping is applied from the menu hook,
+  which renders on every page and therefore does not depend on one of our widgets
+  already being on the dashboard. If core's markup changes the selectors stop matching
+  and the list is simply left alone.
+
+### Fixed
+
+- **Customer Ports Down: "Down for" was always a dash.** `downSeconds()` reads
+  `$port->device->uptime` because ifLastChange is relative to device uptime, but uptime
+  was missing from the eager-load select, so it was always null and every duration was
+  discarded as implausible.
+- **Site Power and Battery: a query per device when grouping by location.** The location
+  relation was not eager loaded, so `siteKey()` triggered a lazy load for every sensor's
+  device. It is now eager loaded, and only when the grouping actually needs it.
+
+### Changed
+
+- **Device Group Down Count: the row bar is now a health meter.** It fills with the
+  proportion of the group that is UP, so a full bar means every device is online, and
+  turns amber while any device is down. Previously it filled with the proportion that
+  was down, so a healthy group showed an empty bar. Applies to the list, cards and
+  compact layouts and the single-group meter. The `bars` layout is unchanged: it exists
+  to rank groups by the share that is down.
+- Poller Health: the "Never polled" tile is labelled "of those, never polled", since
+  never-polled devices are a subset of the stale count rather than a separate group.
+
 ## [1.7.6] - 2026-08-21
 
 ### Fixed

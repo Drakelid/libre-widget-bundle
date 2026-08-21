@@ -330,6 +330,13 @@
 .nmsdw-widget .nmsdw-bar-ok { background: var(--nmsdw-ok); }
 .nmsdw-widget .nmsdw-bar-down { background: var(--nmsdw-crit); }
 
+/*
+ * Health meters fill with how much of the group is UP, so a full bar means everything
+ * is online. Amber while any device is down -- the shortfall is the story, and the row
+ * already carries a red pill and tint for the fault itself.
+ */
+.nmsdw-widget .nmsdw-bar-part { background: var(--nmsdw-warn); }
+
 /* List (default) ---------------------------------------------------------- */
 
 .nmsdw-widget .nmsdw-rows {

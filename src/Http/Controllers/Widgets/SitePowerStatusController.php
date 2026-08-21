@@ -112,7 +112,12 @@ class SitePowerStatusController extends BundleWidgetController
             ->where('sensors.sensor_deleted', 0)
             ->whereIn('sensors.sensor_class', self::CLASSES)
             ->whereNotNull('sensors.sensor_current')
-            ->with(['device', 'translations'])
+            // Eager load the location relation only when grouping needs it. Without
+            // this, siteKey() touches $device->location per sensor, which is a query
+            // per device -- on a large estate that is thousands of round trips.
+            ->with($settings['group_by'] === 'location'
+                ? ['device.location', 'translations']
+                : ['device', 'translations'])
             ->select('sensors.*');
 
         DeviceGroups::scopeToDevices($query, $groupIds, 'sensors.device_id');
