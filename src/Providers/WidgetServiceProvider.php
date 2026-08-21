@@ -34,15 +34,40 @@ class WidgetServiceProvider extends ServiceProvider
     {
         if (class_exists(\Composer\InstalledVersions::class)) {
             try {
-                return (string) \Composer\InstalledVersions::getPrettyVersion(
+                $version = (string) \Composer\InstalledVersions::getPrettyVersion(
                     'drakelid/librenms-dashboard-widgets'
                 );
+
+                return $this->formatVersion($version);
             } catch (\Throwable) {
                 // Not installed via composer (development checkout); fall through.
             }
         }
 
         return 'dev';
+    }
+
+    /**
+     * Return a display-ready version string.
+     *
+     * getPrettyVersion() reports the git tag verbatim, so a tag of `v1.1.2` comes back
+     * with its own leading "v". The template must therefore NOT add another one -- that
+     * produced "vv1.1.2". Prefixing is done here instead, and only for versions that
+     * start with a digit, so branch installs stay readable as "dev-main" rather than
+     * becoming "vdev-main".
+     */
+    private function formatVersion(string $version): string
+    {
+        $version = trim($version);
+
+        if ($version === '') {
+            return 'dev';
+        }
+
+        // Normalise away any leading v, then add exactly one back for numeric versions.
+        $bare = preg_replace('/^v(?=\d)/i', '', $version) ?? $version;
+
+        return preg_match('/^\d/', $bare) === 1 ? 'v' . $bare : $bare;
     }
 
     /**

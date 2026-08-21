@@ -8,7 +8,9 @@
             <div class="panel-heading">
                 <h3 class="panel-title">
                     {{ __('Dashboard Widget Bundle') }}
-                    <small>v{{ $nmsdashwidgets_version ?? '' }}</small>
+                    {{-- The version already carries its own "v" prefix; see
+                         WidgetServiceProvider::formatVersion(). Do not add one here. --}}
+                    <small>{{ $nmsdashwidgets_version ?? '' }}</small>
                 </h3>
             </div>
             <div class="panel-body">

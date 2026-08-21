@@ -7,6 +7,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [1.3.0] - 2026-08-21
 
+### Fixed
+
+- The plugin page showed the version as `vv1.1.2`. `Composer\InstalledVersions::getPrettyVersion()`
+  returns the git tag verbatim, so a `v1.1.2` tag already carries its own prefix and the
+  template was adding a second. Prefixing now happens in one place, and only for versions
+  starting with a digit -- a branch install reads as `dev-main`, not `vdev-main`.
+
 ### Changed
 
 - **Device Group Down Count restyled**, with each display mode now a distinct layout
