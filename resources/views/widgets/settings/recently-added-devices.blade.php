@@ -12,4 +12,17 @@
         <input type="number" step="1" min="1" max="50" class="form-control"
                name="device_count" id="device_count-{{ $id }}" value="{{ $device_count }}">
     </div>
+    <hr>
+
+    @include('widgets.partials.nmsdw-presentation-fields', [
+        'id' => $id,
+        'layouts' => $layouts,
+        'layout' => $layout,
+        'density' => $density,
+        'accent' => $accent,
+        'zebra' => $zebra,
+        'show_header' => $show_header,
+        'card_min_width' => $card_min_width,
+    ])
+
 @endsection

@@ -1,6 +1,13 @@
 @include('widgets.partials.nmsdw-style')
 
-<div class="nmsdw-widget nmsdw-flapping">
+<div class="{{ $widget_classes }} nmsdw-flapping">
+    @if($show_header)
+        <div class="nmsdw-head">{{ __('Flapping devices and links') }}</div>
+        <div class="nmsdw-sub">
+            {{ __('last :h hours', ['h' => $lookback_hours]) }} &middot;
+            {{ __('at least :n changes', ['n' => $min_changes]) }}
+        </div>
+    @endif
     <div class="nmsdw-tiles">
         @include('widgets.partials.nmsdw-tile', [
             'value' => $summary['total_changes'],
@@ -27,6 +34,29 @@
                 'min' => $min_changes,
                 'hours' => $lookback_hours,
             ]),
+        ])
+    @else
+        @if(in_array($layout, ['cards', 'compact', 'tiles'], true))
+        {{-- Alternative layouts share one renderer; each widget only supplies records. --}}
+        @php
+            $records = collect($rows)->map(fn ($r) => [
+                'title' => e($r->device_name),
+                'subtitle' => $r->item_type === 'port' ? $r->port_name : __('Device'),
+                'value' => $r->changes,
+                'unit' => __('state changes'),
+                'status' => $r->severity,
+                'meta' => [
+                    [__('Now'), $r->state],
+                    [__('Last'), \Carbon\Carbon::parse($r->last_change)->diffForHumans(null, true)],
+                ],
+                'href' => null,
+            ])->all();
+        @endphp
+
+        @include('widgets.partials.nmsdw-records', [
+            'records' => $records,
+            'layout' => $layout,
+            'card_min_width' => $card_min_width,
         ])
     @else
         <table class="nmsdw-table">
@@ -68,5 +98,6 @@
                 @endforeach
             </tbody>
         </table>
+    @endif
     @endif
 </div>

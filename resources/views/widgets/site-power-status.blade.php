@@ -1,12 +1,15 @@
 @include('widgets.partials.nmsdw-style')
 
-<div class="nmsdw-widget nmsdw-power">
-    <div class="nmsdw-head">{{ __('Site power and battery') }}</div>
-    <div class="nmsdw-sub">
-        {{ $group_label }} &middot;
-        {{ $group_by === 'location' ? __('grouped by location') : __('grouped by device') }} &middot;
-        {{ __(':count monitored', ['count' => $site_count]) }}
-    </div>
+<div class="{{ $widget_classes }} nmsdw-power">
+    @if($show_header)
+
+        <div class="nmsdw-head">{{ __('Site power and battery') }}</div>
+        <div class="nmsdw-sub">
+            {{ $group_label }} &middot;
+            {{ $group_by === 'location' ? __('grouped by location') : __('grouped by device') }} &middot;
+            {{ __(':count monitored', ['count' => $site_count]) }}
+        </div>
+    @endif
 
     @if(empty($rows))
         @include('widgets.partials.nmsdw-empty', [
@@ -18,7 +21,32 @@
                 : null,
         ])
     @else
-        @foreach($rows as $row)
+@if(in_array($layout, ['cards', 'compact', 'tiles'], true))
+        {{-- Alternative layouts share one renderer; each widget only supplies records. --}}
+        @php
+            $records = collect($rows)->map(fn ($r) => [
+                'title' => e($r['label']),
+                'subtitle' => !empty($r['states']) ? $r['states'][0]['text'] : null,
+                'value' => $r['runtime_label'] ?: ($r['charge_label'] ?: '—'),
+                'unit' => $r['runtime_label'] ? __('runtime left') : ($r['charge_label'] ? __('charge') : null),
+                'status' => $r['status'],
+                'bar' => $r['charge_percent'] ?? 0,
+                'meta' => array_values(array_filter([
+                    $r['voltage'] !== null ? [__('Voltage'), number_format($r['voltage'], 1) . ' V'] : null,
+                    $r['load_watts'] !== null ? [__('Load'), number_format($r['load_watts'], 0) . ' W'] : null,
+                    $group_by === 'location' ? [__('Devices'), $r['device_count']] : null,
+                ])),
+                'href' => $r['device'] ? \LibreNMS\Util\Url::deviceUrl($r['device']) : null,
+            ])->all();
+        @endphp
+
+        @include('widgets.partials.nmsdw-records', [
+            'records' => $records,
+            'layout' => $layout,
+            'card_min_width' => $card_min_width,
+        ])
+    @else
+                @foreach($rows as $row)
             <div class="nmsdw-temp-row nmsdw-temp-{{ $row['status'] }}">
                 <div class="nmsdw-temp-name">
                     @if($group_by === 'location')
@@ -70,6 +98,7 @@
             </div>
         @endforeach
 
+    @endif
         @if($show === 'problems')
             <div class="nmsdw-note">
                 {{ __('Showing sites with a power or battery condition. :count monitored in total.', ['count' => $site_count]) }}

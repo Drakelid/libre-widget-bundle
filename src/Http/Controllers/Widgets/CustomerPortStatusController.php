@@ -5,6 +5,7 @@ namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 use App\Models\Port;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
+use Drakelid\NmsDashWidgets\Support\Presentation;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
 use Drakelid\NmsDashWidgets\Support\SafeRegex;
 use Carbon\Carbon;
@@ -36,6 +37,15 @@ class CustomerPortStatusController extends BundleWidgetController
         'time_interval' => 15,
         'min_down_minutes' => 0,
         'show_admin_down' => false,
+
+        // Layout and styling, shared by every widget in the bundle.
+        // PRESENTATION_DEFAULTS -- values come from Presentation::defaults().
+        'layout' => 'auto',
+        'density' => 'comfortable',
+        'accent' => 'default',
+        'zebra' => '0',
+        'show_header' => '1',
+        'card_min_width' => 220,
     ];
 
     protected function normalizeSettings(array $settings): array
@@ -49,12 +59,19 @@ class CustomerPortStatusController extends BundleWidgetController
         $settings['min_down_minutes'] = Cast::clampedInt($settings['min_down_minutes'] ?? 0, 0, 10080, 0);
         $settings['show_admin_down'] = Cast::bool($settings['show_admin_down'] ?? false, false);
 
+        $settings = Presentation::normalize($settings, $this->name);
+
         return $settings;
     }
 
     public function getView(Request $request): string|View
     {
         $settings = $this->settings();
+
+        // `auto` becomes a concrete layout here, using the widget body size the
+        // dashboard posts with every refresh.
+        $settings['layout'] = Presentation::resolveLayout($settings, $this->name, $request);
+        $settings['widget_classes'] = Presentation::cssClasses($settings, $this->name, $settings['layout']);
         $user = $request->user();
 
         $groupIds = DeviceGroups::accessibleIds($user, $settings['device_groups']);
@@ -197,6 +214,8 @@ class CustomerPortStatusController extends BundleWidgetController
         $settings = $this->getSettings(true);
         $groupIds = DeviceGroups::ids($settings['device_groups'] ?? []);
         $settings['selected_device_groups'] = DeviceGroups::ordered($request->user(), $groupIds);
+
+        $settings['layouts'] = Presentation::layoutsFor($this->name);
 
         return view('widgets.settings.customer-port-status', $settings);
     }

@@ -1,10 +1,13 @@
 @include('widgets.partials.nmsdw-style')
 
-<div class="nmsdw-widget nmsdw-bandwidth">
-    <div class="nmsdw-head">{{ __('Top :count bandwidth ports', ['count' => $top_count]) }}</div>
-    <div class="nmsdw-sub">
-        {{ $group_label }} &middot; {{ __('polled within :count minutes', ['count' => $time_interval]) }}
-    </div>
+<div class="{{ $widget_classes }} nmsdw-bandwidth">
+    @if($show_header)
+
+        <div class="nmsdw-head">{{ __('Top :count bandwidth ports', ['count' => $top_count]) }}</div>
+        <div class="nmsdw-sub">
+            {{ $group_label }} &middot; {{ __('polled within :count minutes', ['count' => $time_interval]) }}
+        </div>
+    @endif
 
     @if(empty($rows))
         @include('widgets.partials.nmsdw-empty', [
@@ -13,6 +16,31 @@
                 'groups' => $group_label,
                 'count' => $time_interval,
             ]),
+        ])
+    @else
+        @if(in_array($layout, ['cards', 'compact', 'tiles'], true))
+        {{-- Alternative layouts share one renderer; each widget only supplies records. --}}
+        @php
+            $records = collect($rows)->map(fn ($r) => [
+                'title' => e($r['port']->device?->displayName() ?? __('Unknown device')),
+                'subtitle' => $r['port']->ifName ?: $r['port']->ifDescr,
+                'value' => $r['total_label'],
+                'unit' => __('total throughput'),
+                'status' => 'info',
+                'bar' => $r['bar_percent'],
+                'meta' => array_values(array_filter([
+                    [__('In'), $r['in_label']],
+                    [__('Out'), $r['out_label']],
+                    $show_utilisation ? [__('Util'), $r['utilisation_label']] : null,
+                ])),
+                'href' => \LibreNMS\Util\Url::portUrl($r['port']),
+            ])->all();
+        @endphp
+
+        @include('widgets.partials.nmsdw-records', [
+            'records' => $records,
+            'layout' => $layout,
+            'card_min_width' => $card_min_width,
         ])
     @else
         <table class="nmsdw-table">
@@ -84,5 +112,6 @@
                 @endforeach
             </tbody>
         </table>
+    @endif
     @endif
 </div>

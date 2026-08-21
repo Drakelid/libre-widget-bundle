@@ -1,11 +1,14 @@
 @include('widgets.partials.nmsdw-style')
 
-<div class="nmsdw-widget nmsdw-poller">
-    <div class="nmsdw-head">{{ __('Poller health') }}</div>
-    <div class="nmsdw-sub">
-        {{ $group_label }} &middot;
-        {{ __('stale after :count minutes without a poll', ['count' => $stale_minutes]) }}
-    </div>
+<div class="{{ $widget_classes }} nmsdw-poller">
+    @if($show_header)
+
+        <div class="nmsdw-head">{{ __('Poller health') }}</div>
+        <div class="nmsdw-sub">
+            {{ $group_label }} &middot;
+            {{ __('stale after :count minutes without a poll', ['count' => $stale_minutes]) }}
+        </div>
+    @endif
 
     <div class="nmsdw-tiles">
         @include('widgets.partials.nmsdw-tile', ['value' => $summary['total'], 'label' => __('Devices')])
@@ -44,6 +47,28 @@
             'hint' => __('Every accessible device has been polled within the last :count minutes.', ['count' => $stale_minutes]),
         ])
     @else
+        @if(in_array($layout, ['cards', 'compact', 'tiles'], true))
+        {{-- Alternative layouts share one renderer; each widget only supplies records. --}}
+        @php
+            $records = collect($rows)->map(fn ($r) => [
+                'title' => e($r['device']->displayName()),
+                'subtitle' => null,
+                'value' => $r['stale_for'] ? $r['stale_for'] : __('never'),
+                'unit' => $r['stale_for'] ? __('since last poll') : __('polled'),
+                'status' => $r['stale_for'] ? 'warning' : 'critical',
+                'meta' => [
+                    [__('State'), $r['device']->status ? __('up') : __('down')],
+                ],
+                'href' => \LibreNMS\Util\Url::deviceUrl($r['device']),
+            ])->all();
+        @endphp
+
+        @include('widgets.partials.nmsdw-records', [
+            'records' => $records,
+            'layout' => $layout,
+            'card_min_width' => $card_min_width,
+        ])
+    @else
         <table class="nmsdw-table">
             <thead>
                 <tr>
@@ -72,6 +97,7 @@
                 @endforeach
             </tbody>
         </table>
+    @endif
 
         @if($summary['stale'] > count($rows))
             <div class="nmsdw-note">

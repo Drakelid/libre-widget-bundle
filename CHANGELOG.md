@@ -5,6 +5,37 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-08-21
+
+### Added
+
+- **Layout and styling settings on every widget.** All eleven now expose the same
+  presentation controls, so a dashboard can be tuned as a whole instead of each widget
+  having its own vocabulary:
+  - **Layout** — `auto`, plus the layouts that suit the widget: `table` or `rows` (its
+    original look), `cards`, `compact`, and `tiles` for the two sensor widgets. `auto`
+    resolves against the widget body width the dashboard reports: the dense line view
+    when narrow, cards when wide.
+  - **Density** — comfortable or compact.
+  - **Accent colour** — default, blue, green, amber, red, violet or slate. Tints neutral
+    chrome only; status colours stay green, amber and red so an alert always reads the
+    same.
+  - **Striped rows** and **show the in-body heading**.
+  - **Minimum card width** for the cards layout.
+- `Support/Presentation.php` centralises the defaults, the per-widget layout lists,
+  coercion and the `auto` resolution.
+- `partials/nmsdw-records.blade.php` renders the cards, compact and tiles layouts once
+  for every widget; each widget only reduces its rows to a neutral record shape.
+- Widgets that had no in-body heading (recently added devices, flapping devices, device
+  temperatures) gained one, so the new setting means something for them too.
+
+### Notes
+
+- Every default reproduces the layout the widget already had, so existing placements are
+  unchanged until someone edits them.
+- Device Group Down Count keeps its own richer layout set (seven layouts plus sort and
+  hide-healthy) and gains the shared accent and striping options.
+
 ## [1.3.0] - 2026-08-21
 
 ### Fixed

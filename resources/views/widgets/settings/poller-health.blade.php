@@ -47,6 +47,19 @@
             {{ __('Ignore disabled and ignored devices') }}
         </label>
     </div>
+    <hr>
+
+    @include('widgets.partials.nmsdw-presentation-fields', [
+        'id' => $id,
+        'layouts' => $layouts,
+        'layout' => $layout,
+        'density' => $density,
+        'accent' => $accent,
+        'zebra' => $zebra,
+        'show_header' => $show_header,
+        'card_min_width' => $card_min_width,
+    ])
+
 @endsection
 
 @section('javascript')

@@ -1,8 +1,11 @@
 @include('widgets.partials.nmsdw-style')
 
-<div class="nmsdw-widget nmsdw-bgp">
-    <div class="nmsdw-head">{{ __('BGP session health') }}</div>
-    <div class="nmsdw-sub">{{ $group_label }}</div>
+<div class="{{ $widget_classes }} nmsdw-bgp">
+    @if($show_header)
+
+        <div class="nmsdw-head">{{ __('BGP session health') }}</div>
+        <div class="nmsdw-sub">{{ $group_label }}</div>
+    @endif
 
     <div class="nmsdw-tiles">
         @include('widgets.partials.nmsdw-tile', ['value' => $summary['total'], 'label' => __('Sessions')])
@@ -20,6 +23,31 @@
             'hint' => $summary['total'] === 0
                 ? __('The bgp-peers discovery module may be disabled, or these devices do not run BGP.')
                 : null,
+        ])
+    @else
+        @if(in_array($layout, ['cards', 'compact', 'tiles'], true))
+        {{-- Alternative layouts share one renderer; each widget only supplies records. --}}
+        @php
+            $records = collect($rows)->map(fn ($r) => [
+                'title' => e($r['peer']->device?->displayName() ?? __('Unknown device')),
+                'subtitle' => $r['peer']->bgpPeerIdentifier . ' · AS' . $r['peer']->bgpPeerRemoteAs,
+                'value' => $r['admin_up'] ? $r['peer']->bgpPeerState : __('shut'),
+                'unit' => $r['peer']->astext ?: null,
+                'status' => $r['status'],
+                'meta' => array_values(array_filter([
+                    $r['prefix'] ? [__('Prefixes'), number_format($r['prefix']['accepted'])] : null,
+                    $r['recent'] ? [__('Note'), __('just re-established')] : null,
+                ])),
+                'href' => $r['peer']->device
+                    ? \LibreNMS\Util\Url::deviceUrl($r['peer']->device, ['tab' => 'routing', 'proto' => 'bgp'])
+                    : null,
+            ])->all();
+        @endphp
+
+        @include('widgets.partials.nmsdw-records', [
+            'records' => $records,
+            'layout' => $layout,
+            'card_min_width' => $card_min_width,
         ])
     @else
         <table class="nmsdw-table">
@@ -91,5 +119,6 @@
                 @endforeach
             </tbody>
         </table>
+    @endif
     @endif
 </div>

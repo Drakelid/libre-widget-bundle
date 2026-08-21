@@ -5,6 +5,7 @@ namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 use App\Models\BgpPeer;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
+use Drakelid\NmsDashWidgets\Support\Presentation;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +37,15 @@ class BgpSessionHealthController extends BundleWidgetController
         'show_prefixes' => true,
         'prefix_drop_percent' => 20,
         'limit' => 25,
+
+        // Layout and styling, shared by every widget in the bundle.
+        // PRESENTATION_DEFAULTS -- values come from Presentation::defaults().
+        'layout' => 'auto',
+        'density' => 'comfortable',
+        'accent' => 'default',
+        'zebra' => '0',
+        'show_header' => '1',
+        'card_min_width' => 220,
     ];
 
     protected function normalizeSettings(array $settings): array
@@ -48,12 +58,19 @@ class BgpSessionHealthController extends BundleWidgetController
         $settings['prefix_drop_percent'] = Cast::clampedFloat($settings['prefix_drop_percent'] ?? 20, 0, 100, 20);
         $settings['limit'] = Cast::clampedInt($settings['limit'] ?? 25, 1, 200, 25);
 
+        $settings = Presentation::normalize($settings, $this->name);
+
         return $settings;
     }
 
     public function getView(Request $request): string|View
     {
         $settings = $this->settings();
+
+        // `auto` becomes a concrete layout here, using the widget body size the
+        // dashboard posts with every refresh.
+        $settings['layout'] = Presentation::resolveLayout($settings, $this->name, $request);
+        $settings['widget_classes'] = Presentation::cssClasses($settings, $this->name, $settings['layout']);
         $user = $request->user();
 
         $groupIds = DeviceGroups::accessibleIds($user, $settings['device_groups']);
@@ -226,6 +243,8 @@ class BgpSessionHealthController extends BundleWidgetController
         $settings = $this->getSettings(true);
         $groupIds = DeviceGroups::ids($settings['device_groups'] ?? []);
         $settings['selected_device_groups'] = DeviceGroups::ordered($request->user(), $groupIds);
+
+        $settings['layouts'] = Presentation::layoutsFor($this->name);
 
         return view('widgets.settings.bgp-session-health', $settings);
     }

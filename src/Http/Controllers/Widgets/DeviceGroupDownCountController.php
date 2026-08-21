@@ -6,6 +6,7 @@ use App\Models\DeviceGroup;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
+use Drakelid\NmsDashWidgets\Support\Presentation;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -50,6 +51,8 @@ class DeviceGroupDownCountController extends BundleWidgetController
         // Added later; defaults preserve the original behaviour exactly.
         'sort' => 'selection',
         'hide_healthy' => '0',
+        'accent' => 'default',
+        'zebra' => '0',
     ];
 
     protected function normalizeSettings(array $settings): array
@@ -67,6 +70,8 @@ class DeviceGroupDownCountController extends BundleWidgetController
         $settings['card_min_width'] = Cast::int($settings['card_min_width'] ?? 170, 120, 320, 170);
         $settings['sort'] = Cast::choice($settings['sort'] ?? 'selection', self::SORTS, 'selection');
         $settings['hide_healthy'] = Cast::bool($settings['hide_healthy'] ?? false, false);
+        $settings['accent'] = Cast::choice($settings['accent'] ?? null, Presentation::ACCENTS, 'default');
+        $settings['zebra'] = Cast::bool($settings['zebra'] ?? false, false);
 
         return $settings;
     }
@@ -181,6 +186,8 @@ class DeviceGroupDownCountController extends BundleWidgetController
             'show_group_totals' => Cast::bool($settings['show_group_totals'] ?? true, true),
             'exclude_ignored_disabled' => Cast::bool($settings['exclude_ignored_disabled'] ?? true, true),
             'sort' => Cast::choice($settings['sort'] ?? 'selection', self::SORTS, 'selection'),
+            'accent' => Cast::choice($settings['accent'] ?? null, Presentation::ACCENTS, 'default'),
+            'zebra' => Cast::bool($settings['zebra'] ?? false, false),
             'hide_healthy' => Cast::bool($settings['hide_healthy'] ?? false, false),
         ]));
     }

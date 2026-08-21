@@ -5,6 +5,7 @@ namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 use App\Models\Sensor;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
+use Drakelid\NmsDashWidgets\Support\Presentation;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
 use Drakelid\NmsDashWidgets\Support\Format;
 use Drakelid\NmsDashWidgets\Support\SafeRegex;
@@ -42,6 +43,15 @@ class TopDeviceTemperaturesController extends BundleWidgetController
         'limit_temp' => 90,
         'sensor_include_regex' => '',
         'sensor_exclude_regex' => '',
+
+        // Layout and styling, shared by every widget in the bundle.
+        // PRESENTATION_DEFAULTS -- values come from Presentation::defaults().
+        'layout' => 'auto',
+        'density' => 'comfortable',
+        'accent' => 'default',
+        'zebra' => '0',
+        'show_header' => '1',
+        'card_min_width' => 220,
     ];
 
     protected function normalizeSettings(array $settings): array
@@ -73,12 +83,19 @@ class TopDeviceTemperaturesController extends BundleWidgetController
             DeviceGroups::ids($settings['device_group'] ?? null),
         )));
 
+        $settings = Presentation::normalize($settings, $this->name);
+
         return $settings;
     }
 
     public function getView(Request $request): string|View
     {
         $settings = $this->settings();
+
+        // `auto` becomes a concrete layout here, using the widget body size the
+        // dashboard posts with every refresh.
+        $settings['layout'] = Presentation::resolveLayout($settings, $this->name, $request);
+        $settings['widget_classes'] = Presentation::cssClasses($settings, $this->name, $settings['layout']);
         $user = $request->user();
 
         $groupIds = DeviceGroups::accessibleIds($user, $settings['device_groups']);
@@ -325,6 +342,8 @@ class TopDeviceTemperaturesController extends BundleWidgetController
         $settings['selected_device_groups'] = DeviceGroups::ordered($request->user(), $groupIds);
         $settings['only_up'] = Cast::bool($settings['only_up'] ?? true, true);
         $settings['include_module_sensors'] = Cast::bool($settings['include_module_sensors'] ?? false, false);
+
+        $settings['layouts'] = Presentation::layoutsFor($this->name);
 
         return view('widgets.settings.top-device-temperatures', $settings);
     }

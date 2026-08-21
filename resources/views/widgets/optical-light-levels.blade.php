@@ -1,10 +1,13 @@
 @include('widgets.partials.nmsdw-style')
 
-<div class="nmsdw-widget nmsdw-optical">
-    <div class="nmsdw-head">{{ __('Optical light levels') }}</div>
-    <div class="nmsdw-sub">
-        {{ $group_label }} &middot; {{ __('ranked by margin above the low threshold') }}
-    </div>
+<div class="{{ $widget_classes }} nmsdw-optical">
+    @if($show_header)
+
+        <div class="nmsdw-head">{{ __('Optical light levels') }}</div>
+        <div class="nmsdw-sub">
+            {{ $group_label }} &middot; {{ __('ranked by margin above the low threshold') }}
+        </div>
+    @endif
 
     @include('widgets.partials.nmsdw-regex-warning', ['problems' => $regex_problems])
 
@@ -12,6 +15,32 @@
         @include('widgets.partials.nmsdw-empty', [
             'message' => __('No optical readings matched.'),
             'hint' => __('This widget needs transceivers that report digital diagnostics (sensor class "dbm"). If nothing appears, the optics in use may not support DDM.'),
+        ])
+    @else
+        @if(in_array($layout, ['cards', 'compact', 'tiles'], true))
+        {{-- Alternative layouts share one renderer; each widget only supplies records. --}}
+        @php
+            $records = collect($rows)->map(fn ($r) => [
+                'title' => e($r['sensor']->device?->displayName() ?? __('Unknown device')),
+                'subtitle' => $r['sensor']->sensor_descr,
+                'value' => number_format($r['current'], 2) . ' dBm',
+                'unit' => $r['margin'] === null
+                    ? __('no threshold')
+                    : __(':v dB margin', ['v' => number_format($r['margin'], 2)]),
+                'status' => $r['status'],
+                'meta' => array_values(array_filter([
+                    $r['low'] !== null ? [__('Low'), number_format($r['low'], 2)] : null,
+                    $r['high'] !== null ? [__('High'), number_format($r['high'], 2)] : null,
+                    $r['direction'] ? [__('Dir'), strtoupper($r['direction'])] : null,
+                ])),
+                'href' => $r['port'] ? \LibreNMS\Util\Url::portUrl($r['port']) : null,
+            ])->all();
+        @endphp
+
+        @include('widgets.partials.nmsdw-records', [
+            'records' => $records,
+            'layout' => $layout,
+            'card_min_width' => $card_min_width,
         ])
     @else
         <table class="nmsdw-table">
@@ -78,6 +107,7 @@
                 @endforeach
             </tbody>
         </table>
+    @endif
 
         @if($skipped_no_limit > 0)
             <div class="nmsdw-note">

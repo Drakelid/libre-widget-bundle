@@ -19,7 +19,7 @@
     $statusOf = fn ($group) => $group->down_count > 0 ? 'down' : 'ok';
 @endphp
 
-<div class="nmsdw-widget nmsdw-dgdc nmsdw-dgdc-{{ $layoutName }} {{ $isCompactDensity ? 'nmsdw-compact' : '' }}">
+<div class="nmsdw-widget nmsdw-dgdc nmsdw-dgdc-{{ $layoutName }} nmsdw-accent-{{ $accent }} {{ $isCompactDensity ? 'nmsdw-compact' : '' }} {{ $zebra ? 'nmsdw-zebra' : '' }}">
     @if(! $has_selection)
         @include('widgets.partials.nmsdw-empty', [
             'message' => __('No device groups selected.'),

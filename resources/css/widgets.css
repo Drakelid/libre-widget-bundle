@@ -785,3 +785,301 @@
 .nmsdw-widget {
     container-type: inline-size;
 }
+
+/* ---------- presentation: accents, zebra, record layouts ---------- */
+
+/*
+ * Accents recolour neutral chrome only -- bars, headings, card values. Status colours
+ * (--nmsdw-ok / warn / crit) are never touched, so a critical row reads the same red
+ * whatever accent the dashboard uses.
+ */
+
+.nmsdw-widget { --nmsdw-accent: var(--nmsdw-info); }
+
+.nmsdw-widget.nmsdw-accent-blue   { --nmsdw-accent: #2f6fb5; }
+.nmsdw-widget.nmsdw-accent-green  { --nmsdw-accent: #1f8a52; }
+.nmsdw-widget.nmsdw-accent-amber  { --nmsdw-accent: #b8770f; }
+.nmsdw-widget.nmsdw-accent-red    { --nmsdw-accent: #c9302c; }
+.nmsdw-widget.nmsdw-accent-violet { --nmsdw-accent: #6b4fbb; }
+.nmsdw-widget.nmsdw-accent-slate  { --nmsdw-accent: #5a6672; }
+
+.dark .nmsdw-widget.nmsdw-accent-blue   { --nmsdw-accent: #6ba4e8; }
+.dark .nmsdw-widget.nmsdw-accent-green  { --nmsdw-accent: #4ec27e; }
+.dark .nmsdw-widget.nmsdw-accent-amber  { --nmsdw-accent: #e0a33a; }
+.dark .nmsdw-widget.nmsdw-accent-red    { --nmsdw-accent: #e8615d; }
+.dark .nmsdw-widget.nmsdw-accent-violet { --nmsdw-accent: #a78bfa; }
+.dark .nmsdw-widget.nmsdw-accent-slate  { --nmsdw-accent: #9aa7b4; }
+
+/* Neutral meter fills follow the accent; status-classed ones keep their colour. */
+.nmsdw-widget .nmsdw-meter-info .nmsdw-meter-fill,
+.nmsdw-widget .nmsdw-rfill,
+.nmsdw-widget .nmsdw-rcard-fill {
+    background: var(--nmsdw-accent);
+}
+
+.nmsdw-widget .nmsdw-head {
+    border-left: 3px solid var(--nmsdw-accent);
+    padding-left: 7px;
+}
+
+/* Zebra ------------------------------------------------------------------- */
+
+.nmsdw-widget.nmsdw-zebra .nmsdw-table > tbody > tr:nth-child(even) > td {
+    background: var(--nmsdw-surface);
+}
+
+.nmsdw-widget.nmsdw-zebra .nmsdw-rrow:nth-child(even),
+.nmsdw-widget.nmsdw-zebra .nmsdw-crow:nth-child(even) {
+    background: var(--nmsdw-surface);
+}
+
+/* Generic record cards ---------------------------------------------------- */
+
+.nmsdw-widget .nmsdw-rcards {
+    display: grid;
+    gap: 8px;
+}
+
+.nmsdw-widget .nmsdw-rcard {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--nmsdw-border);
+    border-top-width: 3px;
+    border-top-color: var(--nmsdw-accent);
+    background: var(--nmsdw-surface);
+    text-decoration: none;
+    color: inherit;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.nmsdw-widget a.nmsdw-rcard:hover {
+    background: var(--nmsdw-surface-strong);
+    color: inherit;
+    text-decoration: none;
+}
+
+.nmsdw-widget .nmsdw-rcard-ok { border-top-color: var(--nmsdw-ok); }
+.nmsdw-widget .nmsdw-rcard-warning { border-top-color: var(--nmsdw-warn); }
+.nmsdw-widget .nmsdw-rcard-critical { border-top-color: var(--nmsdw-crit); }
+.nmsdw-widget .nmsdw-rcard-unknown { border-top-color: var(--nmsdw-unknown); }
+
+.nmsdw-widget .nmsdw-rcard-title {
+    font-weight: 700;
+    font-size: 12px;
+    line-height: 1.25;
+    word-break: break-word;
+    width: 100%;
+}
+
+.nmsdw-widget .nmsdw-rcard-sub {
+    font-size: 10.5px;
+    color: var(--nmsdw-muted);
+    word-break: break-word;
+    width: 100%;
+    margin-top: 1px;
+}
+
+.nmsdw-widget .nmsdw-rcard-value {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+    word-break: break-word;
+}
+
+.nmsdw-widget .nmsdw-rcard-critical .nmsdw-rcard-value { color: var(--nmsdw-crit); }
+.nmsdw-widget .nmsdw-rcard-warning .nmsdw-rcard-value { color: var(--nmsdw-warn); }
+
+.nmsdw-widget .nmsdw-rcard-unit {
+    font-size: 9.5px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--nmsdw-muted);
+}
+
+.nmsdw-widget .nmsdw-rcard-bar {
+    display: block;
+    width: 100%;
+    height: 4px;
+    margin: 7px 0 5px;
+    border-radius: 999px;
+    background: var(--nmsdw-track);
+    overflow: hidden;
+}
+
+.nmsdw-widget .nmsdw-rcard-fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+}
+
+.nmsdw-widget .nmsdw-rcard-critical .nmsdw-rcard-fill { background: var(--nmsdw-crit); }
+.nmsdw-widget .nmsdw-rcard-warning .nmsdw-rcard-fill { background: var(--nmsdw-warn); }
+.nmsdw-widget .nmsdw-rcard-ok .nmsdw-rcard-fill { background: var(--nmsdw-ok); }
+
+.nmsdw-widget .nmsdw-rcard-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    font-size: 10px;
+    color: var(--nmsdw-muted);
+    margin-top: 4px;
+    width: 100%;
+}
+
+.nmsdw-widget .nmsdw-rcard-metak {
+    display: inline-block;
+    min-width: 46px;
+    opacity: .8;
+}
+
+/* Generic compact list ---------------------------------------------------- */
+
+.nmsdw-widget .nmsdw-rlist {
+    display: flex;
+    flex-direction: column;
+}
+
+.nmsdw-widget .nmsdw-rrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--nmsdw-border);
+    text-decoration: none;
+    color: inherit;
+    font-size: 12px;
+}
+
+.nmsdw-widget a.nmsdw-rrow:hover {
+    background: var(--nmsdw-surface-strong);
+    color: inherit;
+    text-decoration: none;
+}
+
+.nmsdw-widget .nmsdw-rdot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--nmsdw-accent);
+}
+
+.nmsdw-widget .nmsdw-rrow-ok .nmsdw-rdot { background: var(--nmsdw-ok); }
+.nmsdw-widget .nmsdw-rrow-warning .nmsdw-rdot { background: var(--nmsdw-warn); }
+.nmsdw-widget .nmsdw-rrow-critical .nmsdw-rdot { background: var(--nmsdw-crit); }
+.nmsdw-widget .nmsdw-rrow-unknown .nmsdw-rdot { background: var(--nmsdw-unknown); }
+
+.nmsdw-widget .nmsdw-rname {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nmsdw-widget .nmsdw-rname .nmsdw-sec {
+    display: inline;
+    margin-left: 5px;
+}
+
+.nmsdw-widget .nmsdw-rbar {
+    flex: 0 0 56px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--nmsdw-track);
+    overflow: hidden;
+}
+
+.nmsdw-widget .nmsdw-rfill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+}
+
+.nmsdw-widget .nmsdw-rvalue {
+    flex: none;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Generic tiles ----------------------------------------------------------- */
+
+.nmsdw-widget .nmsdw-rtiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 6px;
+}
+
+.nmsdw-widget .nmsdw-rtile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1 / 1;
+    padding: 6px 4px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #fff;
+    text-align: center;
+    min-width: 0;
+    background: var(--nmsdw-accent);
+}
+
+.nmsdw-widget a.nmsdw-rtile:hover {
+    color: #fff;
+    text-decoration: none;
+    filter: brightness(1.1);
+}
+
+.nmsdw-widget .nmsdw-rtile-ok { background: var(--nmsdw-ok); }
+.nmsdw-widget .nmsdw-rtile-warning { background: var(--nmsdw-warn); }
+.nmsdw-widget .nmsdw-rtile-critical { background: var(--nmsdw-crit); }
+.nmsdw-widget .nmsdw-rtile-unknown { background: var(--nmsdw-unknown); }
+
+.nmsdw-widget .nmsdw-rtile-value {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    word-break: break-word;
+}
+
+.nmsdw-widget .nmsdw-rtile-name {
+    font-size: 9px;
+    margin-top: 4px;
+    opacity: .9;
+    line-height: 1.15;
+    width: 100%;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+}
+
+/* Compact density applied to the generic layouts -------------------------- */
+
+.nmsdw-widget.nmsdw-compact .nmsdw-rcard {
+    padding: 7px 9px;
+}
+
+.nmsdw-widget.nmsdw-compact .nmsdw-rcard-value {
+    font-size: 19px;
+}
+
+.nmsdw-widget.nmsdw-compact .nmsdw-rrow {
+    padding: 2px 5px;
+    font-size: 11.5px;
+}
+
+.nmsdw-widget.nmsdw-compact .nmsdw-rtiles {
+    grid-template-columns: repeat(auto-fill, minmax(66px, 1fr));
+}

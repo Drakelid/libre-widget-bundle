@@ -151,6 +151,19 @@ SELECT COUNT(*) FROM ports WHERE ifAlias REGEXP 'kundeport|customer|kunde';
 - [ ] Saved widgets from before 1.3.0 render unchanged, except `compact` which is
       intentionally a new layout.
 
+### Gate 6d — presentation settings (1.4.0)
+
+Every widget exposes the same controls. Spot-check three widgets rather than all eleven.
+
+- [ ] Each layout offered by a widget renders: table/rows, cards, compact, tiles.
+- [ ] **Auto** switches with widget width: dense lines when narrow, cards when wide.
+- [ ] **Accent** changes bars and headings but leaves ok/warning/critical colours alone —
+      a critical row is the same red under every accent.
+- [ ] **Density**, **striped rows** and **show heading** all take effect.
+- [ ] **Minimum card width** changes the cards grid.
+- [ ] Cards and compact show the same data as the table: no row silently dropped.
+- [ ] Widgets saved before 1.4.0 render exactly as before until edited.
+
 ### Gate 7 — resilience
 
 - [ ] Invalid regex (e.g. `uplink(`) in the Uplink and Temperature widgets produces an

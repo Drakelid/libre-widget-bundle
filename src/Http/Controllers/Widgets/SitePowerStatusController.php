@@ -5,6 +5,7 @@ namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 use App\Models\Sensor;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
+use Drakelid\NmsDashWidgets\Support\Presentation;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
 use Drakelid\NmsDashWidgets\Support\Format;
 use Illuminate\Http\Request;
@@ -44,6 +45,15 @@ class SitePowerStatusController extends BundleWidgetController
         'voltage_high' => null,
         'group_by' => 'device',
         'limit' => 25,
+
+        // Layout and styling, shared by every widget in the bundle.
+        // PRESENTATION_DEFAULTS -- values come from Presentation::defaults().
+        'layout' => 'auto',
+        'density' => 'comfortable',
+        'accent' => 'default',
+        'zebra' => '0',
+        'show_header' => '1',
+        'card_min_width' => 220,
     ];
 
     protected function normalizeSettings(array $settings): array
@@ -61,12 +71,19 @@ class SitePowerStatusController extends BundleWidgetController
         $settings['voltage_high'] = is_numeric($settings['voltage_high'] ?? null)
             ? (float) $settings['voltage_high'] : null;
 
+        $settings = Presentation::normalize($settings, $this->name);
+
         return $settings;
     }
 
     public function getView(Request $request): string|View
     {
         $settings = $this->settings();
+
+        // `auto` becomes a concrete layout here, using the widget body size the
+        // dashboard posts with every refresh.
+        $settings['layout'] = Presentation::resolveLayout($settings, $this->name, $request);
+        $settings['widget_classes'] = Presentation::cssClasses($settings, $this->name, $settings['layout']);
         $user = $request->user();
 
         $groupIds = DeviceGroups::accessibleIds($user, $settings['device_groups']);
@@ -293,6 +310,8 @@ class SitePowerStatusController extends BundleWidgetController
         $settings = $this->getSettings(true);
         $groupIds = DeviceGroups::ids($settings['device_groups'] ?? []);
         $settings['selected_device_groups'] = DeviceGroups::ordered($request->user(), $groupIds);
+
+        $settings['layouts'] = Presentation::layoutsFor($this->name);
 
         return view('widgets.settings.site-power-status', $settings);
     }

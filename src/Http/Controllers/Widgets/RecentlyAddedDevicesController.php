@@ -5,6 +5,7 @@ namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 use App\Models\Device;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
+use Drakelid\NmsDashWidgets\Support\Presentation;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -18,6 +19,15 @@ class RecentlyAddedDevicesController extends BundleWidgetController
     protected $defaults = [
         'title' => null,
         'device_count' => 10,
+
+        // Layout and styling, shared by every widget in the bundle.
+        // PRESENTATION_DEFAULTS -- values come from Presentation::defaults().
+        'layout' => 'auto',
+        'density' => 'comfortable',
+        'accent' => 'default',
+        'zebra' => '0',
+        'show_header' => '1',
+        'card_min_width' => 220,
     ];
 
     protected function normalizeSettings(array $settings): array
@@ -28,12 +38,19 @@ class RecentlyAddedDevicesController extends BundleWidgetController
         // lower bound, so a hand-edited blob could ask for thousands of rows.
         $settings['device_count'] = Cast::clampedInt($settings['device_count'] ?? 10, 1, 50, 10);
 
+        $settings = Presentation::normalize($settings, $this->name);
+
         return $settings;
     }
 
     public function getView(Request $request): string|View
     {
         $settings = $this->settings();
+
+        // `auto` becomes a concrete layout here, using the widget body size the
+        // dashboard posts with every refresh.
+        $settings['layout'] = Presentation::resolveLayout($settings, $this->name, $request);
+        $settings['widget_classes'] = Presentation::cssClasses($settings, $this->name, $settings['layout']);
 
         // All columns are selected deliberately: <x-device-link> reads a wide set of
         // device attributes (icon, os, display, status...) and the row count is capped
@@ -48,4 +65,13 @@ class RecentlyAddedDevicesController extends BundleWidgetController
             'devices' => $devices,
         ]);
     }
+
+    public function getSettingsView(Request $request): View
+    {
+        $settings = $this->getSettings(true);
+        $settings['layouts'] = Presentation::layoutsFor($this->name);
+
+        return view('widgets.settings.recently-added-devices', $settings);
+    }
+
 }

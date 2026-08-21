@@ -1,14 +1,17 @@
 @include('widgets.partials.nmsdw-style')
 
-<div class="nmsdw-widget nmsdw-uplink">
-    <div class="nmsdw-head">{{ __('Uplink Utilization Overview') }}</div>
-    <div class="nmsdw-sub">
-        {{ __('uplink regex') }}: <code class="nmsdw-code">{{ $effective_regex }}</code>
-        &middot; {{ __('last :count minutes', ['count' => $time_interval]) }}
-        @if($group_label)
-            &middot; {{ $group_label }}
-        @endif
-    </div>
+<div class="{{ $widget_classes }} nmsdw-uplink">
+    @if($show_header)
+
+        <div class="nmsdw-head">{{ __('Uplink Utilization Overview') }}</div>
+        <div class="nmsdw-sub">
+            {{ __('uplink regex') }}: <code class="nmsdw-code">{{ $effective_regex }}</code>
+            &middot; {{ __('last :count minutes', ['count' => $time_interval]) }}
+            @if($group_label)
+                &middot; {{ $group_label }}
+            @endif
+        </div>
+    @endif
 
     @include('widgets.partials.nmsdw-regex-warning', ['problems' => $regex_problems])
 
@@ -52,6 +55,31 @@
         @include('widgets.partials.nmsdw-empty', [
             'message' => __('No uplinks matched.'),
             'hint' => __('Try broadening the uplink regex. Current pattern: :pattern', ['pattern' => $effective_regex]),
+        ])
+    @else
+        @if(in_array($layout, ['cards', 'compact', 'tiles'], true))
+        {{-- Alternative layouts share one renderer; each widget only supplies records. --}}
+        @php
+            $records = collect($rows)->map(fn ($r) => [
+                'title' => e($r['port']->device?->displayName() ?? __('Unknown device')),
+                'subtitle' => $r['port']->ifName ?: $r['port']->ifDescr,
+                'value' => $r['utilisation_label'],
+                'unit' => __('peak :v', ['v' => $r['peak_label']]),
+                'status' => $r['status'],
+                'bar' => $r['utilisation'] ?? 0,
+                'meta' => [
+                    ['RX', $r['in_label']],
+                    ['TX', $r['out_label']],
+                    [__('Speed'), $r['speed_label']],
+                ],
+                'href' => \LibreNMS\Util\Url::portUrl($r['port']),
+            ])->all();
+        @endphp
+
+        @include('widgets.partials.nmsdw-records', [
+            'records' => $records,
+            'layout' => $layout,
+            'card_min_width' => $card_min_width,
         ])
     @else
         <table class="nmsdw-table">
@@ -126,6 +154,7 @@
                 @endforeach
             </tbody>
         </table>
+    @endif
 
         @if($summary['matched'] > count($rows))
             <div class="nmsdw-note">

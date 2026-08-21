@@ -101,6 +101,30 @@
     </div>
 
     <div class="form-group">
+        <label for="accent-{{ $id }}" class="control-label">{{ __('Accent colour') }}</label>
+        <select class="form-control" name="accent" id="accent-{{ $id }}">
+            <option value="default" @selected($accent === 'default')>{{ __('Default') }}</option>
+            <option value="blue" @selected($accent === 'blue')>{{ __('Blue') }}</option>
+            <option value="green" @selected($accent === 'green')>{{ __('Green') }}</option>
+            <option value="amber" @selected($accent === 'amber')>{{ __('Amber') }}</option>
+            <option value="red" @selected($accent === 'red')>{{ __('Red') }}</option>
+            <option value="violet" @selected($accent === 'violet')>{{ __('Violet') }}</option>
+            <option value="slate" @selected($accent === 'slate')>{{ __('Slate') }}</option>
+        </select>
+        <span class="help-block">
+            {{ __('Tints neutral chrome. Status colours stay green and red.') }}
+        </span>
+    </div>
+
+    <div class="checkbox">
+        <label>
+            <input type="hidden" name="zebra" value="0">
+            <input type="checkbox" name="zebra" value="1" @checked((bool) $zebra)>
+            {{ __('Striped rows') }}
+        </label>
+    </div>
+
+    <div class="form-group">
         <label for="background_color-{{ $id }}" class="control-label">{{ __('Alert background colour') }}</label>
         <input type="color" class="form-control" name="background_color"
                id="background_color-{{ $id }}" value="{{ $background_color }}">

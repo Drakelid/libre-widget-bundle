@@ -79,6 +79,19 @@
         <input type="number" step="1" min="1" max="200" class="form-control"
                name="limit" id="limit-{{ $id }}" value="{{ $limit }}">
     </div>
+    <hr>
+
+    @include('widgets.partials.nmsdw-presentation-fields', [
+        'id' => $id,
+        'layouts' => $layouts,
+        'layout' => $layout,
+        'density' => $density,
+        'accent' => $accent,
+        'zebra' => $zebra,
+        'show_header' => $show_header,
+        'card_min_width' => $card_min_width,
+    ])
+
 @endsection
 
 @section('javascript')

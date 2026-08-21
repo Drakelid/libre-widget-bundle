@@ -83,6 +83,19 @@
             {{ __('Leave this on device/chassis only to avoid SFP, port, and interface module temperatures being shown as device temperatures. Regex filters are applied after this option.') }}
         </span>
     </div>
+    <hr>
+
+    @include('widgets.partials.nmsdw-presentation-fields', [
+        'id' => $id,
+        'layouts' => $layouts,
+        'layout' => $layout,
+        'density' => $density,
+        'accent' => $accent,
+        'zebra' => $zebra,
+        'show_header' => $show_header,
+        'card_min_width' => $card_min_width,
+    ])
+
 @endsection
 
 @section('javascript')

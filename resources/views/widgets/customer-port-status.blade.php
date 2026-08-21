@@ -1,11 +1,14 @@
 @include('widgets.partials.nmsdw-style')
 
-<div class="nmsdw-widget nmsdw-custports">
-    <div class="nmsdw-head">{{ __('Customer ports down') }}</div>
-    <div class="nmsdw-sub">
-        {{ $group_label }} &middot;
-        {{ __('matching') }} <code class="nmsdw-code">{{ $effective_regex }}</code>
-    </div>
+<div class="{{ $widget_classes }} nmsdw-custports">
+    @if($show_header)
+
+        <div class="nmsdw-head">{{ __('Customer ports down') }}</div>
+        <div class="nmsdw-sub">
+            {{ $group_label }} &middot;
+            {{ __('matching') }} <code class="nmsdw-code">{{ $effective_regex }}</code>
+        </div>
+    @endif
 
     @include('widgets.partials.nmsdw-regex-warning', ['problems' => $regex_problems])
 
@@ -18,6 +21,31 @@
         @include('widgets.partials.nmsdw-empty', [
             'message' => __('No customer ports are down.'),
             'hint' => __('Ports are matched on ifAlias, ifName and ifDescr. Adjust the regex if your naming convention differs.'),
+        ])
+    @else
+        @if(in_array($layout, ['cards', 'compact', 'tiles'], true))
+        {{-- Alternative layouts share one renderer; each widget only supplies records. --}}
+        @php
+            $records = collect($rows)->map(fn ($r) => [
+                'title' => e($r['port']->device?->displayName() ?? __('Unknown device')),
+                'subtitle' => $r['port']->ifAlias ?: ($r['port']->ifName ?: $r['port']->ifDescr),
+                'value' => $r['admin_down'] ? __('shut') : __('DOWN'),
+                'unit' => $r['down_seconds'] !== null
+                    ? \Carbon\CarbonInterval::seconds($r['down_seconds'])->cascade()->forHumans(['short' => true, 'parts' => 2])
+                    : null,
+                'status' => $r['admin_down'] ? 'unknown' : 'critical',
+                'meta' => array_values(array_filter([
+                    [__('Port'), $r['port']->ifName ?: $r['port']->ifDescr],
+                    $r['group_names'] ? [__('Group'), $r['group_names']] : null,
+                ])),
+                'href' => \LibreNMS\Util\Url::portUrl($r['port']),
+            ])->all();
+        @endphp
+
+        @include('widgets.partials.nmsdw-records', [
+            'records' => $records,
+            'layout' => $layout,
+            'card_min_width' => $card_min_width,
         ])
     @else
         <table class="nmsdw-table">
@@ -61,6 +89,7 @@
                 @endforeach
             </tbody>
         </table>
+    @endif
 
         @if($down_total > count($rows))
             <div class="nmsdw-note">

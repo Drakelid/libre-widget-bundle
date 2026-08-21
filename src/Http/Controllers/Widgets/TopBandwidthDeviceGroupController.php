@@ -5,6 +5,7 @@ namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 use App\Models\Port;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
+use Drakelid\NmsDashWidgets\Support\Presentation;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
 use Drakelid\NmsDashWidgets\Support\Format;
 use Carbon\Carbon;
@@ -29,6 +30,15 @@ class TopBandwidthDeviceGroupController extends BundleWidgetController
         'device_groups' => [],
         'show_graphs' => 1,
         'show_utilisation' => 1,
+
+        // Layout and styling, shared by every widget in the bundle.
+        // PRESENTATION_DEFAULTS -- values come from Presentation::defaults().
+        'layout' => 'auto',
+        'density' => 'comfortable',
+        'accent' => 'default',
+        'zebra' => '0',
+        'show_header' => '1',
+        'card_min_width' => 220,
     ];
 
     protected function normalizeSettings(array $settings): array
@@ -41,12 +51,19 @@ class TopBandwidthDeviceGroupController extends BundleWidgetController
         $settings['show_utilisation'] = Cast::bool($settings['show_utilisation'] ?? true, true);
         $settings['device_groups'] = DeviceGroups::ids($settings['device_groups'] ?? []);
 
+        $settings = Presentation::normalize($settings, $this->name);
+
         return $settings;
     }
 
     public function getView(Request $request): string|View
     {
         $settings = $this->settings();
+
+        // `auto` becomes a concrete layout here, using the widget body size the
+        // dashboard posts with every refresh.
+        $settings['layout'] = Presentation::resolveLayout($settings, $this->name, $request);
+        $settings['widget_classes'] = Presentation::cssClasses($settings, $this->name, $settings['layout']);
         $user = $request->user();
 
         // Never trust group ids from the settings blob; a user could hand-edit one in.
@@ -133,6 +150,8 @@ class TopBandwidthDeviceGroupController extends BundleWidgetController
         // list server side meant a DISTINCT over the whole ports table every time
         // someone opened the settings panel.
         $settings['selected_device_groups'] = DeviceGroups::ordered($request->user(), $groupIds);
+
+        $settings['layouts'] = Presentation::layoutsFor($this->name);
 
         return view('widgets.settings.top-bandwidth-device-group', $settings);
     }

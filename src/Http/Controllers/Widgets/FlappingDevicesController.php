@@ -5,6 +5,7 @@ namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 use App\Models\Device;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
+use Drakelid\NmsDashWidgets\Support\Presentation;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -38,6 +39,15 @@ class FlappingDevicesController extends BundleWidgetController
         'show_type' => 'all',
         'device_group' => null,
         'refresh' => 60,
+
+        // Layout and styling, shared by every widget in the bundle.
+        // PRESENTATION_DEFAULTS -- values come from Presentation::defaults().
+        'layout' => 'auto',
+        'density' => 'comfortable',
+        'accent' => 'default',
+        'zebra' => '0',
+        'show_header' => '1',
+        'card_min_width' => 220,
     ];
 
     protected function normalizeSettings(array $settings): array
@@ -48,12 +58,19 @@ class FlappingDevicesController extends BundleWidgetController
         $settings['limit'] = Cast::clampedInt($settings['limit'] ?? 15, 1, 100, 15);
         $settings['show_type'] = Cast::choice($settings['show_type'] ?? 'all', self::SHOW_TYPES, 'all');
 
+        $settings = Presentation::normalize($settings, $this->name);
+
         return $settings;
     }
 
     public function getView(Request $request): View|string
     {
         $settings = $this->settings();
+
+        // `auto` becomes a concrete layout here, using the widget body size the
+        // dashboard posts with every refresh.
+        $settings['layout'] = Presentation::resolveLayout($settings, $this->name, $request);
+        $settings['widget_classes'] = Presentation::cssClasses($settings, $this->name, $settings['layout']);
         $since = Carbon::now()->subHours($settings['lookback_hours'])->toDateTimeString();
 
         // Resolve accessible devices first; the eventlog itself carries no permissions.
@@ -225,4 +242,13 @@ class FlappingDevicesController extends BundleWidgetController
 
         return 'info';
     }
+
+    public function getSettingsView(Request $request): View
+    {
+        $settings = $this->getSettings(true);
+        $settings['layouts'] = Presentation::layoutsFor($this->name);
+
+        return view('widgets.settings.flapping-devices', $settings);
+    }
+
 }

@@ -7,6 +7,7 @@ use App\Models\Sensor;
 use App\Models\Transceiver;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
+use Drakelid\NmsDashWidgets\Support\Presentation;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
 use Drakelid\NmsDashWidgets\Support\SafeRegex;
 use Illuminate\Http\Request;
@@ -44,6 +45,15 @@ class OpticalLightLevelsController extends BundleWidgetController
         'exclude_regex' => '',
         'show_transceiver_details' => true,
         'only_with_limits' => true,
+
+        // Layout and styling, shared by every widget in the bundle.
+        // PRESENTATION_DEFAULTS -- values come from Presentation::defaults().
+        'layout' => 'auto',
+        'density' => 'comfortable',
+        'accent' => 'default',
+        'zebra' => '0',
+        'show_header' => '1',
+        'card_min_width' => 220,
     ];
 
     protected function normalizeSettings(array $settings): array
@@ -58,12 +68,19 @@ class OpticalLightLevelsController extends BundleWidgetController
         $settings['show_transceiver_details'] = Cast::bool($settings['show_transceiver_details'] ?? true, true);
         $settings['only_with_limits'] = Cast::bool($settings['only_with_limits'] ?? true, true);
 
+        $settings = Presentation::normalize($settings, $this->name);
+
         return $settings;
     }
 
     public function getView(Request $request): string|View
     {
         $settings = $this->settings();
+
+        // `auto` becomes a concrete layout here, using the widget body size the
+        // dashboard posts with every refresh.
+        $settings['layout'] = Presentation::resolveLayout($settings, $this->name, $request);
+        $settings['widget_classes'] = Presentation::cssClasses($settings, $this->name, $settings['layout']);
         $user = $request->user();
 
         $groupIds = DeviceGroups::accessibleIds($user, $settings['device_groups']);
@@ -283,6 +300,8 @@ class OpticalLightLevelsController extends BundleWidgetController
         $settings = $this->getSettings(true);
         $groupIds = DeviceGroups::ids($settings['device_groups'] ?? []);
         $settings['selected_device_groups'] = DeviceGroups::ordered($request->user(), $groupIds);
+
+        $settings['layouts'] = Presentation::layoutsFor($this->name);
 
         return view('widgets.settings.optical-light-levels', $settings);
     }
