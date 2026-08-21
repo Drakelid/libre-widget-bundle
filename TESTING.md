@@ -157,8 +157,12 @@ Every widget exposes the same controls. Spot-check three widgets rather than all
 
 - [ ] Each layout offered by a widget renders: table/rows, cards, compact, tiles.
 - [ ] **Auto** switches with widget width: dense lines when narrow, cards when wide.
-- [ ] **Accent** changes bars and headings but leaves ok/warning/critical colours alone —
-      a critical row is the same red under every accent.
+- [ ] **Accent** is clearly visible: table header row, stat tile borders and values,
+      heading text and code chips all change. Not just a thin stripe.
+- [ ] Accent leaves ok/warning/critical alone — a critical row is the same red under
+      every accent.
+- [ ] The **default** accent looks unchanged from before 1.7.1: heading text keeps the
+      normal foreground colour rather than turning blue.
 - [ ] **Density**, **striped rows** and **show heading** all take effect.
 - [ ] **Minimum card width** changes the cards grid.
 - [ ] Cards and compact show the same data as the table: no row silently dropped.
@@ -207,6 +211,21 @@ Every widget exposes the same controls. Spot-check three widgets rather than all
 - [ ] Where readings were discarded, the footer says so and gives a count.
 - [ ] A site with a valid runtime below the threshold still goes critical — the
       validation must not have suppressed genuine alarms.
+
+### Gate 6i — per-widget enable/disable (1.7.0)
+
+- [ ] Overview -> Plugins -> Plugins Admin -> Settings shows all eleven widgets ticked.
+- [ ] Unticking one and saving removes it from the dashboard "Add Widget" list without
+      running any command by hand.
+- [ ] `php artisan route:list --path=ajax/dash` no longer lists the disabled slug.
+- [ ] Re-enabling restores it to the picker.
+- [ ] A dashboard still holding a disabled widget shows an error panel, not a 500, and
+      recovers when the widget is re-enabled.
+- [ ] "Select none" then Save disables everything; the picker shows none of ours and
+      LibreNMS still works.
+- [ ] A non-admin cannot reach the settings page.
+- [ ] `plugin/settings/nmsdashwidgets` renders our settings, confirming the old route
+      collision with core is gone.
 
 ### Gate 7 — resilience
 

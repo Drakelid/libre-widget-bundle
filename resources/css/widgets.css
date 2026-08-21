@@ -1083,3 +1083,77 @@
 .nmsdw-widget.nmsdw-compact .nmsdw-rtiles {
     grid-template-columns: repeat(auto-fill, minmax(66px, 1fr));
 }
+
+/* ---------- accent surface ---------- */
+
+/*
+ * Neutral chrome only. Status colours stay green / amber / red everywhere so an alert
+ * reads identically under every accent.
+ */
+
+/*
+ * Heading text follows the accent only when one has been chosen. Under the default
+ * accent the heading keeps the normal foreground colour, so installations that never
+ * touch the setting look exactly as they did before.
+ */
+.nmsdw-widget:not(.nmsdw-accent-default) .nmsdw-head {
+    color: var(--nmsdw-accent);
+}
+
+/* Table header: the largest neutral surface in most widgets. */
+.nmsdw-widget .nmsdw-table > thead > tr > th {
+    border-bottom: 2px solid var(--nmsdw-accent);
+}
+
+.nmsdw-widget:not(.nmsdw-accent-default) .nmsdw-table > thead > tr > th {
+    color: var(--nmsdw-accent);
+    background: color-mix(in srgb, var(--nmsdw-accent) 12%, transparent);
+}
+
+/* Stat tiles: BGP, flapping, uplink, poller and customer ports all show a row of these. */
+.nmsdw-widget .nmsdw-tile {
+    border-top: 2px solid var(--nmsdw-accent);
+}
+
+.nmsdw-widget:not(.nmsdw-accent-default) .nmsdw-tile-value {
+    color: var(--nmsdw-accent);
+}
+
+/* Inline code chips in the subtitle, e.g. the uplink regex. */
+.nmsdw-widget:not(.nmsdw-accent-default) code.nmsdw-code {
+    color: var(--nmsdw-accent);
+    border: 1px solid color-mix(in srgb, var(--nmsdw-accent) 35%, transparent);
+}
+
+/* Section notes and empty states pick up a hint of it. */
+.nmsdw-widget .nmsdw-empty {
+    border-color: color-mix(in srgb, var(--nmsdw-accent) 40%, var(--nmsdw-border));
+}
+
+/*
+ * Neutral bars: the usage bar in top-bandwidth is deliberately status-free, so it
+ * follows the accent rather than implying a severity it does not have.
+ */
+.nmsdw-widget .nmsdw-meter-info .nmsdw-meter-fill {
+    background: var(--nmsdw-accent);
+}
+
+/* The device-group hero keeps its own colours when something is down, but the healthy
+   state is neutral and follows the accent. */
+.nmsdw-widget:not(.nmsdw-accent-default) .nmsdw-hero-ok .nmsdw-hero-value {
+    color: var(--nmsdw-accent);
+}
+
+/*
+ * Fallback for browsers without color-mix(): the tinted backgrounds simply do not
+ * apply, leaving the solid borders and text colours, which still read as the accent.
+ */
+@supports not (color: color-mix(in srgb, red 50%, transparent)) {
+    .nmsdw-widget:not(.nmsdw-accent-default) .nmsdw-table > thead > tr > th {
+        background: var(--nmsdw-surface-strong);
+    }
+
+    .nmsdw-widget:not(.nmsdw-accent-default) code.nmsdw-code {
+        border-color: var(--nmsdw-border);
+    }
+}

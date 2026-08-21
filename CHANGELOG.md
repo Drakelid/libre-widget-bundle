@@ -5,6 +5,60 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2026-08-21
+
+### Fixed
+
+- **Accent colours had almost nothing to paint.** The setting was applied correctly --
+  the `nmsdw-accent-*` class reached the DOM and the custom property resolved -- but only
+  five rules consumed it, and four of those live in the cards, compact and tiles layouts
+  where status colours legitimately override them. In the default table layout the accent
+  coloured a single 3px stripe beside the heading, and nothing at all when the heading was
+  switched off.
+
+  The accent now also colours the table header row, stat tile borders and values, heading
+  text, inline code chips, neutral progress bars and the empty state. Sixteen rules
+  instead of five.
+
+### Notes
+
+- Status colours are still untouched: ok, warning and critical read identically under
+  every accent.
+- Text recolouring is scoped to `:not(.nmsdw-accent-default)`, so an installation that
+  never changes the setting looks exactly as it did before. Choosing an accent is what
+  makes it visible.
+- Tinted backgrounds use `color-mix()`, with an `@supports` fallback to the plain surface
+  colour on older browsers; borders and text still carry the accent there.
+
+## [1.7.0] - 2026-08-21
+
+### Added
+
+- **Per-widget enable/disable.** Overview -> Plugins -> Plugins Admin -> Settings now
+  lists every widget in the bundle with a tick box. Unticking one removes it from the
+  dashboard "Add Widget" list without uninstalling the plugin.
+- `Support/WidgetCatalog.php` is now the single source of truth for which widgets exist
+  and which are switched on; routes are generated from it.
+- Saving the settings rebuilds the route cache automatically. LibreNMS builds the widget
+  list by scanning routes and caches that table in production, so a change would
+  otherwise not appear until someone ran `route:clear` by hand. The settings page still
+  shows the command in case the rebuild fails.
+
+### Changed
+
+- The plugin's own admin page has been removed in favour of LibreNMS's native plugin
+  settings page, implemented through `SettingsHook`. Its route
+  (`plugin/settings/nmsdashwidgets`) **collided with core's**
+  `plugin/settings/{plugin:plugin_name}`; whichever registered first won. The menu entry
+  now links to core's page.
+
+### Notes
+
+- With the setting absent, every widget is enabled -- so upgrading changes nothing, and
+  a future release adding a widget does not leave it silently switched off.
+- Disabling a widget that is still on a dashboard leaves an error panel in its place.
+  Nothing is deleted; re-enabling restores it. The settings page warns about this.
+
 ## [1.6.2] - 2026-08-21
 
 ### Fixed

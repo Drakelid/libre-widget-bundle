@@ -23,8 +23,8 @@ class MenuEntry implements MenuEntryHook
     /**
      * Whether the current user may see the menu entry.
      *
-     * The page it links to is admin gated by PluginAdminController, but the entry
-     * itself is harmless for any authenticated user.
+     * The entry links to core's plugin settings page, which enforces plugin.admin on
+     * its own, so showing the link to any authenticated user is harmless.
      */
     public function authorize(Authenticatable $user, array $settings = []): bool
     {

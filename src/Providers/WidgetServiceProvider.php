@@ -2,11 +2,16 @@
 
 namespace Drakelid\NmsDashWidgets\Providers;
 
+use App\Models\Plugin;
 use Drakelid\NmsDashWidgets\Hooks\MenuEntry;
+use Drakelid\NmsDashWidgets\Hooks\Settings;
+use Drakelid\NmsDashWidgets\Support\WidgetCatalog;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use LibreNMS\Interfaces\Plugins\Hooks\MenuEntryHook;
+use LibreNMS\Interfaces\Plugins\Hooks\SettingsHook;
 use LibreNMS\Interfaces\Plugins\PluginManagerInterface;
 
 class WidgetServiceProvider extends ServiceProvider
@@ -17,9 +22,54 @@ class WidgetServiceProvider extends ServiceProvider
      */
     public const PLUGIN_NAME = 'nmsdashwidgets';
 
+    /**
+     * Widget slugs enabled for this installation.
+     *
+     * Populated during boot() and read by routes/web.php. Static because the routes file
+     * is included by the framework rather than by this class.
+     *
+     * @var list<string>|null
+     */
+    private static ?array $enabledWidgets = null;
+
+    /**
+     * @return list<string>
+     */
+    public static function enabledWidgets(): array
+    {
+        return self::$enabledWidgets ?? WidgetCatalog::slugs();
+    }
+
     public function register(): void
     {
         //
+    }
+
+    /**
+     * Rebuild the route cache when this plugin's settings are saved.
+     *
+     * The dashboard widget list is built by scanning the route table, and production
+     * installations cache that table -- so switching a widget off would otherwise have
+     * no visible effect until someone ran route:clear by hand. LibreNMS does the same
+     * thing in its own plugin:enable command.
+     */
+    private function rebuildRoutesWhenSettingsChange(): void
+    {
+        Plugin::saved(function (Plugin $plugin): void {
+            if ($plugin->plugin_name !== self::PLUGIN_NAME || ! $plugin->wasChanged('settings')) {
+                return;
+            }
+
+            try {
+                Artisan::call($this->app->routesAreCached() ? 'route:cache' : 'route:clear');
+            } catch (\Throwable $e) {
+                // Cache maintenance must never break saving settings; the settings page
+                // tells the user how to clear it by hand.
+                Log::warning('nmsdashwidgets: could not refresh the route cache', [
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        });
     }
 
     /**
@@ -109,10 +159,17 @@ class WidgetServiceProvider extends ServiceProvider
         // Hooks must be published whether or not the plugin is enabled, so the
         // plugin can be discovered and toggled in Plugins Admin.
         $pluginManager->publishHook(self::PLUGIN_NAME, MenuEntryHook::class, MenuEntry::class);
+        $pluginManager->publishHook(self::PLUGIN_NAME, SettingsHook::class, Settings::class);
 
         if (! $pluginManager->pluginEnabled(self::PLUGIN_NAME)) {
             return;
         }
+
+        // Which widgets the administrator has switched on. Read once here and stashed so
+        // routes/web.php can register only those. See enabledWidgets().
+        self::$enabledWidgets = WidgetCatalog::enabled($pluginManager->getSettings(self::PLUGIN_NAME));
+
+        $this->rebuildRoutesWhenSettingsChange();
 
         $views = __DIR__ . '/../../resources/views';
 
