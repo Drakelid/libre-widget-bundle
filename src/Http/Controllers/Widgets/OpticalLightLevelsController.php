@@ -144,6 +144,13 @@ class OpticalLightLevelsController extends BundleWidgetController
                 $low = is_numeric($sensor->sensor_limit_low) ? (float) $sensor->sensor_limit_low : null;
                 $high = is_numeric($sensor->sensor_limit) ? (float) $sensor->sensor_limit : null;
 
+                // DDM optics report their own warn thresholds a little inside the alarm
+                // thresholds, and discovery stores them. They describe the actual part
+                // far better than one flat dB figure applied across every optic, so they
+                // win where present; warn_margin_db covers the ones that report none.
+                $lowWarn = is_numeric($sensor->sensor_limit_low_warn) ? (float) $sensor->sensor_limit_low_warn : null;
+                $highWarn = is_numeric($sensor->sensor_limit_warn) ? (float) $sensor->sensor_limit_warn : null;
+
                 if ($low === null && $settings['only_with_limits']) {
                     $skippedNoLimit++;
                     continue;
@@ -160,17 +167,20 @@ class OpticalLightLevelsController extends BundleWidgetController
                     'low' => $low,
                     'high' => $high,
                     'margin' => $margin,
-                    'status' => $this->status($current, $low, $high, $settings['warn_margin_db']),
+                    'status' => $this->status($current, $low, $high, $lowWarn, $highWarn, $settings['warn_margin_db']),
                 ];
 
                 if (count($rows) >= $highWater) {
-                    $rows = $this->trim($rows, $keep);
+                    $rows = $this->trim($rows, $keep, $settings['mode']);
                 }
             }
         }, 'sensors.sensor_id', 'sensor_id');
 
-        $rows = $this->trim($rows, $keep);
-        $rows = $this->attachPorts($rows, $settings['show_transceiver_details']);
+        $rows = $this->trim($rows, $keep, $settings['mode']);
+        // Driven by the visible column, not by the legacy show_transceiver_details flag:
+        // Columns seeds itself from that flag, but once a user sets columns explicitly the
+        // two can disagree, and then the Optic column renders empty cells.
+        $rows = $this->attachPorts($rows, (bool) $settings['cols']['optic']);
 
         return view('widgets.optical-light-levels', $settings + $this->shared($settings) + [
             'rows' => $rows,
@@ -180,15 +190,39 @@ class OpticalLightLevelsController extends BundleWidgetController
             'skipped_regex' => $skippedRegex,
             'total_seen' => $totalSeen,
             'regex_problems' => $this->regexProblems($include, $exclude),
+            'ordering' => $settings['mode'] === 'all'
+                ? __('listed by device')
+                : __('ranked by margin above the low threshold'),
         ]);
     }
 
     /**
-     * Order by margin ascending: the link closest to its low threshold comes first.
-     * Readings with no low limit have no margin and always sort last.
+     * Reduce to the rows worth showing, in the order the chosen mode implies.
+     *
+     * Every mode except `all` ranks by margin ascending, so the link closest to its low
+     * threshold comes first; readings with no low limit have no margin and sort last.
+     *
+     * `all` is offered in the settings as "All optical readings" and used to rank by
+     * margin like everything else, which made it a duplicate of "Worst margin" and meant
+     * the option silently did nothing. It now lists by device and description instead,
+     * which is what an inventory view of the optics wants -- and, combined with turning
+     * off the low-threshold filter, is the only way to see optics that report no limits
+     * at all, since those always sort last under a margin ranking.
      */
-    private function trim(array $rows, int $keep): array
+    private function trim(array $rows, int $keep, string $mode): array
     {
+        if ($mode === 'all') {
+            usort($rows, function (array $a, array $b): int {
+                $aD = $a['sensor']->device?->displayName() ?? '';
+                $bD = $b['sensor']->device?->displayName() ?? '';
+
+                return [$aD, (string) $a['sensor']->sensor_descr]
+                    <=> [$bD, (string) $b['sensor']->sensor_descr];
+            });
+
+            return array_slice($rows, 0, $keep);
+        }
+
         usort($rows, function (array $a, array $b): int {
             $aM = $a['margin'] ?? PHP_FLOAT_MAX;
             $bM = $b['margin'] ?? PHP_FLOAT_MAX;
@@ -221,8 +255,14 @@ class OpticalLightLevelsController extends BundleWidgetController
             $rows
         )));
 
+        // whereNotNull matters: entity_physical_index is nullable, and so is the sensor
+        // side. Without it every unindexed sensor on a device keys to "<id>:" and so does
+        // every unindexed transceiver, so the first such transceiver would be attached to
+        // all of them -- showing the wrong port and the wrong optic. Core's
+        // TransceiverSensors component guards the same way.
         $transceivers = Transceiver::query()
             ->whereIntegerInRaw('device_id', $deviceIds)
+            ->whereNotNull('entity_physical_index')
             ->get()
             ->keyBy(fn (Transceiver $t): string => $t->device_id . ':' . $t->entity_physical_index);
 
@@ -232,8 +272,10 @@ class OpticalLightLevelsController extends BundleWidgetController
             ->keyBy('port_id');
 
         foreach ($rows as $i => $row) {
-            $key = $row['sensor']->device_id . ':' . $row['sensor']->entPhysicalIndex;
-            $transceiver = $transceivers->get($key);
+            $index = $row['sensor']->entPhysicalIndex;
+            $transceiver = ($index === null || $index === '')
+                ? null
+                : $transceivers->get($row['sensor']->device_id . ':' . $index);
 
             $rows[$i]['transceiver'] = $withDetails ? $transceiver : null;
             $rows[$i]['port'] = $transceiver && $transceiver->port_id
@@ -285,11 +327,21 @@ class OpticalLightLevelsController extends BundleWidgetController
     }
 
     /**
-     * Critical at or beyond either limit, warning within warn_margin_db of the low
-     * limit. Overdrive (above the high limit) matters too: it cooks the far-end optic.
+     * Critical at or beyond either alarm limit. Overdrive (above the high limit) matters
+     * too: it cooks the far-end receiver.
+     *
+     * Warning prefers the thresholds the optic itself reports over the flat
+     * warn_margin_db setting. A long-haul optic and a 10m DAC have very different ideas
+     * of what "close to dark" means, and the module already knows which it is.
      */
-    private function status(float $current, ?float $low, ?float $high, float $warnMargin): string
-    {
+    private function status(
+        float $current,
+        ?float $low,
+        ?float $high,
+        ?float $lowWarn,
+        ?float $highWarn,
+        float $warnMargin
+    ): string {
         if ($low !== null && $current <= $low) {
             return 'critical';
         }
@@ -298,7 +350,16 @@ class OpticalLightLevelsController extends BundleWidgetController
             return 'critical';
         }
 
-        if ($low !== null && $current <= ($low + $warnMargin)) {
+        if ($lowWarn !== null && $current <= $lowWarn) {
+            return 'warning';
+        }
+
+        if ($highWarn !== null && $current >= $highWarn) {
+            return 'warning';
+        }
+
+        // Only when the optic reports no low warn threshold of its own.
+        if ($lowWarn === null && $low !== null && $current <= ($low + $warnMargin)) {
             return 'warning';
         }
 

@@ -5,7 +5,7 @@
 
         <div class="nmsdw-head">{{ $heading ?: __('Optical light levels') }}</div>
         <div class="nmsdw-sub">
-            {{ $group_label }} &middot; {{ __('ranked by margin above the low threshold') }}
+            {{ $group_label }} &middot; {{ $ordering }}
         </div>
     @endif
 
@@ -45,14 +45,19 @@
                 'title' => e($r['sensor']->device?->displayName() ?? __('Unknown device')),
                 'subtitle' => $r['sensor']->sensor_descr,
                 'value' => number_format($r['current'], 2) . ' dBm',
-                'unit' => $r['margin'] === null
-                    ? __('no threshold')
-                    : __(':v dB margin', ['v' => number_format($r['margin'], 2)]),
+                'unit' => ! $cols['margin']
+                    ? null
+                    : ($r['margin'] === null
+                        ? __('no threshold')
+                        : __(':v dB margin', ['v' => number_format($r['margin'], 2)])),
                 'status' => $r['status'],
                 'meta' => array_values(array_filter([
-                    $r['low'] !== null ? [__('Low'), number_format($r['low'], 2)] : null,
-                    $r['high'] !== null ? [__('High'), number_format($r['high'], 2)] : null,
+                    $cols['thresholds'] && $r['low'] !== null ? [__('Low'), number_format($r['low'], 2)] : null,
+                    $cols['thresholds'] && $r['high'] !== null ? [__('High'), number_format($r['high'], 2)] : null,
                     $r['direction'] ? [__('Dir'), strtoupper($r['direction'])] : null,
+                    $cols['optic'] && $r['transceiver'] && $r['transceiver']->model
+                        ? [__('Optic'), trim($r['transceiver']->vendor . ' ' . $r['transceiver']->model)]
+                        : null,
                 ])),
                 'href' => $r['port'] ? \LibreNMS\Util\Url::portUrl($r['port']) : null,
             ])->all();

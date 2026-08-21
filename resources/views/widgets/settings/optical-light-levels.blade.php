@@ -27,9 +27,11 @@
             <option value="worst_margin" @selected($mode === 'worst_margin')>{{ __('Worst margin (RX and TX)') }}</option>
             <option value="rx_only" @selected($mode === 'rx_only')>{{ __('Receive levels only') }}</option>
             <option value="tx_only" @selected($mode === 'tx_only')>{{ __('Transmit levels only') }}</option>
-            <option value="all" @selected($mode === 'all')>{{ __('All optical readings') }}</option>
+            <option value="all" @selected($mode === 'all')>{{ __('All optical readings, listed by device') }}</option>
         </select>
         <span class="help-block">
+            {{ __('The first three rank by margin, worst first. The last lists by device instead, which is the way to audit optics rather than hunt failures.') }}
+            <br>
             {{ __('Direction is read from the sensor description; readings that do not identify themselves are only shown in the combined modes.') }}
         </span>
     </div>
@@ -42,7 +44,7 @@
             <span class="input-group-addon">dB</span>
         </div>
         <span class="help-block">
-            {{ __('Warn when a reading is within this many dB of its low threshold. Below the threshold is always critical.') }}
+            {{ __('Used only for optics that report no warning threshold of their own. Where the optic reports one, that is used instead, since it is specific to the part. At or below the low threshold is always critical.') }}
         </span>
     </div>
 
@@ -69,7 +71,7 @@
             {{ __('Only show optics that report a low threshold') }}
         </label>
         <span class="help-block">
-            {{ __('Without a threshold there is no margin to rank by. Turn this off to audit which optics report no limits.') }}
+            {{ __('Without a threshold there is no margin to rank by, so these readings always sort last. To actually see them, turn this off and set Show to "All optical readings".') }}
         </span>
     </div>
 

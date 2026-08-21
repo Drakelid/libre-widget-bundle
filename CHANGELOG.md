@@ -7,6 +7,39 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [1.9.1] - 2026-08-21
 
+### Fixed
+
+- **Optical Light Levels: "All optical readings" did nothing.** The setting offered four
+  modes but the code only ever branched on the two direction filters, so "All optical
+  readings" ranked by margin exactly like "Worst margin" and the two were identical. It
+  now lists by device and description, which is what auditing optics wants, and is the
+  only way to actually see optics that report no limits -- under a margin ranking those
+  always sort last and get sliced off.
+
+- **Optical Light Levels: wrong optic attached to sensors with no entPhysicalIndex.**
+  Both `sensors.entPhysicalIndex` and `transceivers.entity_physical_index` are nullable.
+  Every unindexed sensor keyed to `"<device_id>:"` and so did every unindexed
+  transceiver, so all of them picked up whichever transceiver landed on that key --
+  showing another port's optic. Both sides are now required to have an index, the way
+  core's `TransceiverSensors` component does it.
+
+- **Optical Light Levels: column settings were ignored outside table layout.** The cards
+  and compact layouts rendered thresholds, margin and direction whatever the column
+  toggles said. They now follow them, and can show the optic model too.
+
+- **Optical Light Levels: the Optic column could render empty cells.** Its contents were
+  gated on the legacy `show_transceiver_details` flag while the column itself was gated
+  on the column setting; once a user set columns explicitly the two could disagree.
+
+### Changed
+
+- **Optical Light Levels warns on the optic's own thresholds where it reports them.**
+  Discovery already stores `sensor_limit_low_warn` and `sensor_limit_warn`, and the
+  widget was ignoring both in favour of one flat "warning margin" applied to every optic.
+  A long-haul optic and a 10m DAC do not agree on what "close to dark" means, and the
+  module knows which it is. The warning margin setting still covers optics that report no
+  warn threshold.
+
 ### Added
 
 - **Offline Devices Map: optional hiding of the attribution line and the zoom buttons.**
