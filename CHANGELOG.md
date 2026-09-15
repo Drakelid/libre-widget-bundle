@@ -22,6 +22,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   layered over an opaque base matching the dashboard panel (white in light mode,
   `#353a41` in dark). Affects every table widget in the bundle.
 
+- **`install-widgets.sh` only knew about the original six widgets.** The route check at
+  the end and the closing summary now cover all twelve, so a missing route for a newer
+  widget is reported instead of passing silently.
+
 ### Changed
 
 - **The attribution line is now hidden by default on the Offline Devices Map.** On a NOC

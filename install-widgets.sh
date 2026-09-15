@@ -16,6 +16,7 @@ set -euo pipefail
 
 PACKAGE="drakelid/librenms-dashboard-widgets"
 PLUGIN_NAME="nmsdashwidgets"
+# Keep in step with src/Support/WidgetCatalog.php.
 WIDGET_SLUGS=(
     device-group-down-count
     top-bandwidth-device-group
@@ -23,6 +24,12 @@ WIDGET_SLUGS=(
     top-device-temperatures
     flapping-devices
     recently-added-devices
+    optical-light-levels
+    bgp-session-health
+    site-power-status
+    customer-port-status
+    offline-devices-map
+    poller-health
 )
 
 LNMS_DIR="${LNMS_DIR:-/opt/librenms}"
@@ -409,6 +416,8 @@ else
     elif [ "$FOUND" -gt 0 ]; then
         warn "Only $FOUND of ${#WIDGET_SLUGS[@]} widget routes registered."
         for slug in "${MISSING[@]}"; do dim "missing: ajax/dash/$slug"; done
+        dim "Widgets switched off on the plugin settings page are not registered;"
+        dim "if that is why these are missing, nothing is wrong."
     else
         warn "No widget routes found."
         dim "The plugin is installed but not enabled, or the route cache is stale."
@@ -430,6 +439,12 @@ cat <<EOF
     Top Device Temperatures
     Flapping Devices / Unstable Links
     Recently Added Devices
+    Optical Light Levels
+    BGP Session Health
+    Site Power and Battery
+    Customer Ports Down
+    Offline Devices Map
+    Poller Health
 
   If the widgets do not appear, the route cache is the usual culprit:
 
