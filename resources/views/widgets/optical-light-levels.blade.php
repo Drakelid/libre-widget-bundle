@@ -27,7 +27,7 @@
                 : trim(implode(' ', array_filter([
                     __(':count optical readings were found.', ['count' => $total_seen]),
                     $skipped_no_limit > 0
-                        ? __(':count were hidden because the optic reports no low threshold — untick "Only show optics that report a low threshold" to see them.', ['count' => $skipped_no_limit])
+                        ? __(':count were hidden because they have no low threshold: the optic reports none. Set a low alarm threshold in the widget settings to rank them, or untick "Only show readings with a low threshold" to list them anyway.', ['count' => $skipped_no_limit])
                         : null,
                     $skipped_direction > 0
                         ? __(':count did not identify as receive or transmit; try the combined mode.', ['count' => $skipped_direction])
@@ -52,8 +52,12 @@
                         : __(':v dB margin', ['v' => number_format($r['margin'], 2)])),
                 'status' => $r['status'],
                 'meta' => array_values(array_filter([
-                    $cols['thresholds'] && $r['low'] !== null ? [__('Low'), number_format($r['low'], 2)] : null,
-                    $cols['thresholds'] && $r['high'] !== null ? [__('High'), number_format($r['high'], 2)] : null,
+                    $cols['thresholds'] && $r['low'] !== null
+                        ? [__('Low'), number_format($r['low'], 2) . ($r['custom']['low'] ? ' ' . __('(custom)') : '')]
+                        : null,
+                    $cols['thresholds'] && $r['high'] !== null
+                        ? [__('High'), number_format($r['high'], 2) . ($r['custom']['high'] ? ' ' . __('(custom)') : '')]
+                        : null,
                     $r['direction'] ? [__('Dir'), strtoupper($r['direction'])] : null,
                     $cols['optic'] && $r['transceiver'] && $r['transceiver']->model
                         ? [__('Optic'), trim($r['transceiver']->vendor . ' ' . $r['transceiver']->model)]
@@ -116,10 +120,20 @@
                         @if($cols['thresholds'])
                             <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
                                 @if($row['low'] !== null)
-                                    <div>{{ __('Low') }}: {{ number_format($row['low'], 2) }}</div>
+                                    <div>
+                                        {{ __('Low') }}: {{ number_format($row['low'], 2) }}
+                                        @if($row['custom']['low'])
+                                            <span class="nmsdw-custom" title="{{ __('Set in the widget settings') }}">{{ __('custom') }}</span>
+                                        @endif
+                                    </div>
                                 @endif
                                 @if($row['high'] !== null)
-                                    <div>{{ __('High') }}: {{ number_format($row['high'], 2) }}</div>
+                                    <div>
+                                        {{ __('High') }}: {{ number_format($row['high'], 2) }}
+                                        @if($row['custom']['high'])
+                                            <span class="nmsdw-custom" title="{{ __('Set in the widget settings') }}">{{ __('custom') }}</span>
+                                        @endif
+                                    </div>
                                 @endif
                                 @if($row['low'] === null && $row['high'] === null)
                                     <div>{{ __('none reported') }}</div>
@@ -146,7 +160,7 @@
         @if($skipped_no_limit > 0 || $skipped_direction > 0 || $skipped_regex > 0)
             <div class="nmsdw-note">
                 @if($skipped_no_limit > 0)
-                    {{ __(':count readings hidden because the optic reports no low threshold.', ['count' => $skipped_no_limit]) }}
+                    {{ __(':count readings hidden because they have no low threshold. Set one in the widget settings to include them.', ['count' => $skipped_no_limit]) }}
                 @endif
                 @if($skipped_direction > 0)
                     {{ __(':count hidden by the receive/transmit filter.', ['count' => $skipped_direction]) }}

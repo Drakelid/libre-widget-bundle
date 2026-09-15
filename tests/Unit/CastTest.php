@@ -35,6 +35,18 @@ class CastTest extends TestCase
         $this->assertSame(70.0, Cast::clampedFloat('', 1, 100, 70));
     }
 
+    public function test_nullable_float_treats_blank_as_unset_and_clamps(): void
+    {
+        $this->assertNull(Cast::nullableFloat(null, -60, 30));
+        $this->assertNull(Cast::nullableFloat('', -60, 30));
+        $this->assertNull(Cast::nullableFloat('abc', -60, 30));
+        $this->assertSame(-23.5, Cast::nullableFloat('-23.5', -60, 30));
+        // 0 dBm is a real threshold, not an empty one.
+        $this->assertSame(0.0, Cast::nullableFloat('0', -60, 30));
+        $this->assertSame(-60.0, Cast::nullableFloat('-99', -60, 30));
+        $this->assertSame(30.0, Cast::nullableFloat('45', -60, 30));
+    }
+
     public function test_bool_understands_stringified_flags(): void
     {
         $this->assertTrue(Cast::bool('1', false));

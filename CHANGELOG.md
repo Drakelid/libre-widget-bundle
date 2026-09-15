@@ -7,6 +7,16 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [1.9.2] - 2026-09-03
 
+### Added
+
+- **Optical Light Levels: thresholds set in the widget.** Receive and transmit each take
+  a low alarm, low warning, high warning and high alarm in dBm. LibreNMS never guesses
+  limits for dBm sensors, so an optic that reports no thresholds of its own had no
+  margin and was hidden by default -- on some devices, most of their optics. A threshold
+  set in the widget fills that gap. A new setting picks which wins when both exist: the
+  optic's own (the default, with the widget's filling gaps) or the widget's. Values from
+  the widget are tagged "custom" in the Thresholds column.
+
 ### Fixed
 
 - **Offline Devices Map: "Hide the attribution line" and "Hide the zoom buttons" did
@@ -25,6 +35,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **`install-widgets.sh` only knew about the original six widgets.** The route check at
   the end and the closing summary now cover all twelve, so a missing route for a newer
   widget is reported instead of passing silently.
+
+- **Optical Light Levels did not recognise receive/transmit in run-together names.**
+  Direction was matched as a whole word, so `RxPower`/`TxPower` (FS), `rxPower1` to
+  `txPower4` (BDCOM) and `SfpRxDbm-`/`SfpTxdBm-` (Eltex) got no direction and were
+  dropped from the receive-only and transmit-only views. CamelCase and letter/digit runs
+  are now split before matching.
 
 ### Changed
 

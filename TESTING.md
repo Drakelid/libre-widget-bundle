@@ -116,15 +116,23 @@ SELECT COUNT(*) FROM ports WHERE ifAlias REGEXP 'kundeport|customer|kunde';
 - [ ] **Optical**: RX and TX are labelled correctly. Compare against the raw data:
       `SELECT sensor_descr, sensor_current, sensor_limit_low FROM sensors WHERE sensor_class='dbm' AND sensor_deleted=0 LIMIT 20;`
       A description containing "in" (e.g. "Tx power in dBm") must still read TX.
+      Run-together names must read correctly too: "RxPower", "rxPower1", "SfpTxdBm-".
 - [ ] **Optical**: if the widget is empty it states how many readings were found and
       which filter removed them, rather than only "nothing matched". Untick "Only show
-      optics that report a low threshold" and confirm rows appear if the optics report
+      readings with a low threshold" and confirm rows appear if the optics report
       power without limits.
 - [ ] **Optical**: values are plain dBm — no double scaling. A reading shown as
       -7.50 dBm must equal `sensors.sensor_current` for that row.
 - [ ] **Optical**: a reading below its low threshold shows critical; one within the
-      warning margin shows warning. Toggling "only show optics that report a low
+      warning margin shows warning. Toggling "Only show readings with a low
       threshold" changes the row count.
+- [ ] **Optical**: find an optic with no limits
+      (`... WHERE sensor_class='dbm' AND sensor_limit_low IS NULL`). Set a Receive and a
+      Transmit low alarm in the widget: those optics now appear, ranked by margin, with
+      their Low value tagged "custom". Optics that report their own limits keep them.
+- [ ] **Optical**: switch "When the optic reports its own thresholds" to use the
+      widget's values. Optics with their own limits now show the widget's values,
+      tagged "custom"; any box left empty still falls back to the optic's.
 - [ ] **Optical**: the transceiver column shows vendor/model for at least some rows —
       if always blank, the `device_id` + `entPhysicalIndex` join is not matching.
 - [ ] **BGP**: tile counts add up (established + down + shut/unknown = total).

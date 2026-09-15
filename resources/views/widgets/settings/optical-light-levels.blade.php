@@ -44,8 +44,62 @@
             <span class="input-group-addon">dB</span>
         </div>
         <span class="help-block">
-            {{ __('Used only for optics that report no warning threshold of their own. Where the optic reports one, that is used instead, since it is specific to the part. At or below the low threshold is always critical.') }}
+            {{ __('Used only where no low warning threshold is known, neither reported by the optic nor set below. A specific threshold always wins, since it fits the part. At or below the low alarm threshold is always critical.') }}
         </span>
+    </div>
+
+    @php
+        $limitLabels = [
+            'low' => __('Low alarm'),
+            'low_warn' => __('Low warning'),
+            'high_warn' => __('High warning'),
+            'high' => __('High alarm'),
+        ];
+    @endphp
+
+    <div class="form-group">
+        <label class="control-label">{{ __('Thresholds (dBm)') }}</label>
+        <div class="table-responsive">
+            <table class="table table-condensed" style="margin-bottom: 4px;">
+                <thead>
+                    <tr>
+                        <th></th>
+                        @foreach($limitLabels as $limitLabel)
+                            <th>{{ $limitLabel }}</th>
+                        @endforeach
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach(['rx' => __('Receive'), 'tx' => __('Transmit')] as $dir => $dirLabel)
+                        <tr>
+                            <th scope="row" style="vertical-align: middle;">{{ $dirLabel }}</th>
+                            @foreach($limitLabels as $limit => $limitLabel)
+                                <td>
+                                    <input type="number" step="any" min="-60" max="30"
+                                           class="form-control input-sm"
+                                           name="{{ $dir }}_{{ $limit }}" id="{{ $dir }}_{{ $limit }}-{{ $id }}"
+                                           value="{{ $custom_thresholds[$dir][$limit] }}"
+                                           aria-label="{{ $dirLabel }} {{ $limitLabel }}">
+                                </td>
+                            @endforeach
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        <span class="help-block">
+            {{ __('Optional. Leave a box empty to use the optic\'s own value. Many optics report no thresholds at all; setting a low alarm here is what lets them be ranked by margin.') }}
+            <br>
+            {{ __('Readings whose direction cannot be read from the description use the Receive row. Thresholds set here are tagged "custom" in the widget.') }}
+        </span>
+    </div>
+
+    <div class="form-group">
+        <label for="threshold_priority-{{ $id }}" class="control-label">{{ __('When the optic reports its own thresholds') }}</label>
+        <select class="form-control" name="threshold_priority" id="threshold_priority-{{ $id }}">
+            <option value="optic" @selected($threshold_priority === 'optic')>{{ __('Use the optic\'s; the values above only fill in what it does not report') }}</option>
+            <option value="custom" @selected($threshold_priority === 'custom')>{{ __('Use the values above; the optic\'s only fill in boxes left empty') }}</option>
+        </select>
     </div>
 
     <div class="form-group">
@@ -68,10 +122,10 @@
         <label>
             <input type="hidden" name="only_with_limits" value="0">
             <input type="checkbox" name="only_with_limits" value="1" @checked((bool) $only_with_limits)>
-            {{ __('Only show optics that report a low threshold') }}
+            {{ __('Only show readings with a low threshold') }}
         </label>
         <span class="help-block">
-            {{ __('Without a threshold there is no margin to rank by, so these readings always sort last. To actually see them, turn this off and set Show to "All optical readings".') }}
+            {{ __('Either the optic\'s own or one set above. Without a threshold there is no margin to rank by, so these readings always sort last. To see them anyway, set a low alarm threshold above, or turn this off and set Show to "All optical readings".') }}
         </span>
     </div>
 

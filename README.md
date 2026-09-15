@@ -158,6 +158,9 @@ Carried over deliberately from the original widgets:
   change it to the plural `device_groups` used by the other widgets.
 - **Optical Light Levels ranks by the LOW threshold**, unlike the temperature widget
   which uses the high side. For optics it is falling receive power that predicts failure.
+  LibreNMS never guesses limits for dBm sensors, so an optic without DDM thresholds has
+  none; set receive/transmit thresholds in the widget settings to rank it. By default
+  the optic's own thresholds win and the widget's fill the gaps; that can be reversed.
 - **`bgpPeerFsmEstablishedTime` is seconds since the session came up**, not a timestamp.
 - **`ports.ifLastChange` is SNMP TimeTicks relative to device uptime**, not wall clock,
   and resets on reboot. Customer Ports Down shows a dash rather than a wrong duration

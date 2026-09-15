@@ -10,6 +10,7 @@ use Drakelid\NmsDashWidgets\Support\Cast;
 use Drakelid\NmsDashWidgets\Support\Columns;
 use Drakelid\NmsDashWidgets\Support\Presentation;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
+use Drakelid\NmsDashWidgets\Support\Optical;
 use Drakelid\NmsDashWidgets\Support\SafeRegex;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -47,6 +48,20 @@ class OpticalLightLevelsController extends BundleWidgetController
         'show_transceiver_details' => true,
         'only_with_limits' => true,
 
+        // Thresholds set in the widget, in dBm, per direction. null means "not set":
+        // the optic's own value is used, or none if it reports none. LibreNMS never
+        // guesses limits for dBm sensors, so for optics without DDM thresholds these
+        // are the only limits there are.
+        'rx_low' => null,
+        'rx_low_warn' => null,
+        'rx_high_warn' => null,
+        'rx_high' => null,
+        'tx_low' => null,
+        'tx_low_warn' => null,
+        'tx_high_warn' => null,
+        'tx_high' => null,
+        'threshold_priority' => Optical::PRIORITY_OPTIC,
+
         // Visible columns. null means "never configured", which falls back to the
         // defaults in Support\Columns (and to any legacy show_* toggles).
         'columns' => null,
@@ -73,6 +88,19 @@ class OpticalLightLevelsController extends BundleWidgetController
         $settings['show_transceiver_details'] = Cast::bool($settings['show_transceiver_details'] ?? true, true);
         $settings['only_with_limits'] = Cast::bool($settings['only_with_limits'] ?? true, true);
 
+        foreach (['rx', 'tx'] as $dir) {
+            foreach (Optical::LIMITS as $limit) {
+                $key = $dir . '_' . $limit;
+                $settings[$key] = Cast::nullableFloat($settings[$key] ?? null, Optical::MIN_DBM, Optical::MAX_DBM);
+            }
+        }
+
+        $settings['threshold_priority'] = Cast::choice(
+            $settings['threshold_priority'] ?? null,
+            Optical::PRIORITIES,
+            Optical::PRIORITY_OPTIC
+        );
+
         $settings = Columns::normalize($settings, $this->name);
         $settings = Presentation::normalize($settings, $this->name);
 
@@ -93,6 +121,7 @@ class OpticalLightLevelsController extends BundleWidgetController
         $groupIds = DeviceGroups::accessibleIds($user, $settings['device_groups']);
         $include = SafeRegex::make($settings['include_regex']);
         $exclude = SafeRegex::make($settings['exclude_regex']);
+        $custom = $this->customThresholds($settings);
 
         $query = Sensor::hasAccess($user)
             ->where('sensors.sensor_deleted', 0)
@@ -113,11 +142,14 @@ class OpticalLightLevelsController extends BundleWidgetController
 
         $query->chunkById(self::CHUNK_SIZE, function ($sensors) use (
             &$rows, &$skippedNoLimit, &$skippedDirection, &$skippedRegex, &$totalSeen,
-            $settings, $include, $exclude, $keep, $highWater
+            $settings, $include, $exclude, $keep, $highWater, $custom
         ): void {
             foreach ($sensors as $sensor) {
                 $totalSeen++;
-                $direction = $this->direction($sensor);
+                $direction = Optical::direction(
+                    (string) ($sensor->sensor_descr ?? ''),
+                    (string) ($sensor->sensor_type ?? '')
+                );
 
                 if ($settings['mode'] === 'rx_only' && $direction !== 'rx') {
                     $skippedDirection++;
@@ -141,15 +173,20 @@ class OpticalLightLevelsController extends BundleWidgetController
                     continue;
                 }
 
-                $low = is_numeric($sensor->sensor_limit_low) ? (float) $sensor->sensor_limit_low : null;
-                $high = is_numeric($sensor->sensor_limit) ? (float) $sensor->sensor_limit : null;
-
-                // DDM optics report their own warn thresholds a little inside the alarm
-                // thresholds, and discovery stores them. They describe the actual part
-                // far better than one flat dB figure applied across every optic, so they
-                // win where present; warn_margin_db covers the ones that report none.
-                $lowWarn = is_numeric($sensor->sensor_limit_low_warn) ? (float) $sensor->sensor_limit_low_warn : null;
-                $highWarn = is_numeric($sensor->sensor_limit_warn) ? (float) $sensor->sensor_limit_warn : null;
+                // The optic's own limits merged with any set in the widget. Readings whose
+                // direction is unknown take the receive values: falling receive power is
+                // what this widget exists to catch.
+                [$limits, $fromCustom] = Optical::mergeLimits(
+                    [
+                        'low' => $this->limit($sensor->sensor_limit_low),
+                        'low_warn' => $this->limit($sensor->sensor_limit_low_warn),
+                        'high_warn' => $this->limit($sensor->sensor_limit_warn),
+                        'high' => $this->limit($sensor->sensor_limit),
+                    ],
+                    $custom[$direction === 'tx' ? 'tx' : 'rx'],
+                    $settings['threshold_priority']
+                );
+                $low = $limits['low'];
 
                 if ($low === null && $settings['only_with_limits']) {
                     $skippedNoLimit++;
@@ -165,9 +202,10 @@ class OpticalLightLevelsController extends BundleWidgetController
                     'direction' => $direction,
                     'current' => $current,
                     'low' => $low,
-                    'high' => $high,
+                    'high' => $limits['high'],
+                    'custom' => $fromCustom,
                     'margin' => $margin,
-                    'status' => $this->status($current, $low, $high, $lowWarn, $highWarn, $settings['warn_margin_db']),
+                    'status' => Optical::status($current, $limits, $settings['warn_margin_db']),
                 ];
 
                 if (count($rows) >= $highWater) {
@@ -206,8 +244,9 @@ class OpticalLightLevelsController extends BundleWidgetController
      * margin like everything else, which made it a duplicate of "Worst margin" and meant
      * the option silently did nothing. It now lists by device and description instead,
      * which is what an inventory view of the optics wants -- and, combined with turning
-     * off the low-threshold filter, is the only way to see optics that report no limits
-     * at all, since those always sort last under a margin ranking.
+     * off the low-threshold filter, shows optics that have no limits at all, which sort
+     * last under a margin ranking. Setting a low threshold in the widget is the other
+     * way to bring those into view, and the one that ranks them.
      */
     private function trim(array $rows, int $keep, string $mode): array
     {
@@ -287,30 +326,27 @@ class OpticalLightLevelsController extends BundleWidgetController
     }
 
     /**
-     * RX or TX, read from the sensor description.
+     * The thresholds set in the widget, grouped by direction.
      *
-     * Deliberately does NOT match a bare "in" or "out". Those appear in ordinary prose
-     * ("power in dBm"), and because receive is tested first a transmit sensor whose
-     * description happened to contain the word "in" was being labelled RX -- and then
-     * excluded by the tx_only filter. The explicit "input"/"output" alternatives cover
-     * the real vendor wording without that risk.
-     *
-     * Vendors are inconsistent, so anything unrecognised stays null rather than being
-     * guessed at; those readings only appear in the combined modes.
+     * @return array{rx: array<string, ?float>, tx: array<string, ?float>}
      */
-    private function direction(Sensor $sensor): ?string
+    private function customThresholds(array $settings): array
     {
-        $text = strtolower(trim(($sensor->sensor_descr ?? '') . ' ' . ($sensor->sensor_type ?? '')));
+        $thresholds = [];
 
-        if (preg_match('/\b(rx|recv|receive|received|input)\b/', $text)) {
-            return 'rx';
+        foreach (['rx', 'tx'] as $dir) {
+            foreach (Optical::LIMITS as $limit) {
+                $thresholds[$dir][$limit] = $settings[$dir . '_' . $limit] ?? null;
+            }
         }
 
-        if (preg_match('/\b(tx|xmit|transmit|transmitted|output)\b/', $text)) {
-            return 'tx';
-        }
+        return $thresholds;
+    }
 
-        return null;
+    /** A stored sensor limit, or null where the optic reports none. */
+    private function limit(mixed $value): ?float
+    {
+        return is_numeric($value) ? (float) $value : null;
     }
 
     private function haystack(Sensor $sensor): string
@@ -324,50 +360,6 @@ class OpticalLightLevelsController extends BundleWidgetController
             $sensor->sensor_type,
             (string) ($sensor->sensor_index ?? ''),
         ]))));
-    }
-
-    /**
-     * Critical at or beyond either alarm limit. Overdrive (above the high limit) matters
-     * too: it cooks the far-end receiver.
-     *
-     * Warning prefers the thresholds the optic itself reports over the flat
-     * warn_margin_db setting. A long-haul optic and a 10m DAC have very different ideas
-     * of what "close to dark" means, and the module already knows which it is.
-     */
-    private function status(
-        float $current,
-        ?float $low,
-        ?float $high,
-        ?float $lowWarn,
-        ?float $highWarn,
-        float $warnMargin
-    ): string {
-        if ($low !== null && $current <= $low) {
-            return 'critical';
-        }
-
-        if ($high !== null && $current >= $high) {
-            return 'critical';
-        }
-
-        if ($lowWarn !== null && $current <= $lowWarn) {
-            return 'warning';
-        }
-
-        if ($highWarn !== null && $current >= $highWarn) {
-            return 'warning';
-        }
-
-        // Only when the optic reports no low warn threshold of its own.
-        if ($lowWarn === null && $low !== null && $current <= ($low + $warnMargin)) {
-            return 'warning';
-        }
-
-        if ($low === null && $high === null) {
-            return 'unknown';
-        }
-
-        return 'ok';
     }
 
     private function regexProblems(SafeRegex $include, SafeRegex $exclude): array
@@ -392,6 +384,7 @@ class OpticalLightLevelsController extends BundleWidgetController
         $settings['layouts'] = Presentation::layoutsFor($this->name);
         $settings['column_defs'] = Columns::definitionsFor($this->name);
         $settings['column_visible'] = Columns::visible($settings, $this->name);
+        $settings['custom_thresholds'] = $this->customThresholds($settings);
 
         return view('widgets.settings.optical-light-levels', $settings);
     }

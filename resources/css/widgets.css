@@ -160,6 +160,15 @@
     word-break: break-word;
 }
 
+/* Marks a value that came from the widget settings rather than the device. */
+.nmsdw-widget .nmsdw-custom {
+    margin-left: 4px;
+    font-size: 9.5px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--nmsdw-accent);
+}
+
 /* ---------- status pills ---------- */
 
 .nmsdw-widget .nmsdw-pill {

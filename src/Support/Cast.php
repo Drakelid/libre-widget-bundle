@@ -55,6 +55,21 @@ final class Cast
         return max($min, min($max, (float) $value));
     }
 
+    /**
+     * Float squeezed into a range, or null when blank or not a number.
+     *
+     * For optional thresholds, where an empty box means "not set" -- and 0 is a real
+     * value, not an absent one.
+     */
+    public static function nullableFloat(mixed $value, float $min, float $max): ?float
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        return max($min, min($max, (float) $value));
+    }
+
     /** Float with no range constraint. */
     public static function float(mixed $value, float $fallback): float
     {
