@@ -106,7 +106,7 @@
             {{ __('Hide the attribution line') }}
         </label>
         <span class="help-block">
-            {{ __('Removes the "Leaflet | Powered by Esri ..." credit along the bottom of the map. Map providers ask for that credit in their terms of use, so this is your call to make.') }}
+            {{ __('Removes the "Leaflet | Powered by Esri ..." credit along the bottom of the map. On by default, because the credit line eats a visible slice of a small map tile. Map providers ask for that credit in their terms of use, so switch it back off if you need to honour them.') }}
         </span>
     </div>
 

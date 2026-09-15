@@ -5,6 +5,30 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.2] - 2026-09-03
+
+### Fixed
+
+- **Offline Devices Map: "Hide the attribution line" and "Hide the zoom buttons" did
+  nothing.** Both are implemented as classes on the map container matched by rules in
+  the bundle stylesheet, but the map blade was the one widget view that never included
+  `widgets.partials.nmsdw-style` -- so unless another widget from this bundle happened
+  to be on the same dashboard, the rules were never on the page and the chrome stayed
+  visible.
+
+- **Table headers were see-through while scrolling.** The column titles stick to the top
+  of the widget body, but their background was a translucent tint, so rows scrolling
+  underneath showed through and device names overlapped the titles. The tint is now
+  layered over an opaque base matching the dashboard panel (white in light mode,
+  `#353a41` in dark). Affects every table widget in the bundle.
+
+### Changed
+
+- **The attribution line is now hidden by default on the Offline Devices Map.** On a NOC
+  dashboard the map tile is small and the credit strip eats a visible slice of it.
+  Widgets that already have an explicit choice saved keep it; unchecking the setting
+  brings the credit back for operators who need to honour a tile provider's terms.
+
 ## [1.9.1] - 2026-08-21
 
 ### Fixed

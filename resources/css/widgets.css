@@ -19,6 +19,14 @@
     --nmsdw-surface-strong: rgba(0, 0, 0, 0.07);
     --nmsdw-track: rgba(0, 0, 0, 0.10);
 
+    /*
+     * Opaque colour of the dashboard panel behind the widget. The surfaces above are
+     * translucent, which is fine for static boxes but not for sticky table headers:
+     * rows scrolling underneath would show through. Light mode paints no panel
+     * background of its own, so the page white shows through.
+     */
+    --nmsdw-panel: #fff;
+
     --nmsdw-ok: #1f8a52;
     --nmsdw-warn: #b8770f;
     --nmsdw-crit: #c9302c;
@@ -38,6 +46,9 @@
     --nmsdw-surface: rgba(255, 255, 255, 0.055);
     --nmsdw-surface-strong: rgba(255, 255, 255, 0.10);
     --nmsdw-track: rgba(255, 255, 255, 0.14);
+
+    /* LibreNMS dark theme: `.dark .grid-stack .grid-stack-item-content` background. */
+    --nmsdw-panel: #353a41;
 
     --nmsdw-ok: #4ec27e;
     --nmsdw-warn: #e0a33a;
@@ -120,7 +131,9 @@
     text-transform: uppercase;
     font-weight: 600;
     color: var(--nmsdw-muted);
-    background: var(--nmsdw-surface-strong);
+    /* The tint is layered over an opaque base so scrolled rows cannot show through. */
+    --nmsdw-th-tint: var(--nmsdw-surface-strong);
+    background: linear-gradient(var(--nmsdw-th-tint), var(--nmsdw-th-tint)), var(--nmsdw-panel);
     border-bottom: 1px solid var(--nmsdw-border);
     padding: 6px;
     white-space: nowrap;
@@ -1114,7 +1127,7 @@
 
 .nmsdw-widget:not(.nmsdw-accent-default) .nmsdw-table > thead > tr > th {
     color: var(--nmsdw-accent);
-    background: color-mix(in srgb, var(--nmsdw-accent) 12%, transparent);
+    --nmsdw-th-tint: color-mix(in srgb, var(--nmsdw-accent) 12%, transparent);
 }
 
 /* Stat tiles: BGP, flapping, uplink, poller and customer ports all show a row of these. */
@@ -1157,7 +1170,7 @@
  */
 @supports not (color: color-mix(in srgb, red 50%, transparent)) {
     .nmsdw-widget:not(.nmsdw-accent-default) .nmsdw-table > thead > tr > th {
-        background: var(--nmsdw-surface-strong);
+        --nmsdw-th-tint: var(--nmsdw-surface-strong);
     }
 
     .nmsdw-widget:not(.nmsdw-accent-default) code.nmsdw-code {

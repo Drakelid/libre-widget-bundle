@@ -1,3 +1,4 @@
+@include('widgets.partials.nmsdw-style')
 {{--
     Device map filtered by any number of device groups.
 
