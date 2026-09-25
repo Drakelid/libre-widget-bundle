@@ -127,6 +127,42 @@ class OpticalLightLevelsController extends BundleWidgetController
             ->where('sensors.sensor_deleted', 0)
             ->where('sensors.sensor_class', 'dbm')
             ->whereNotNull('sensors.sensor_current')
+            ->whereHas('device', function ($query): void {
+                $query->where('status', 1)->where('disabled', 0);
+            })
+            // Filter before ranking/limiting: stale readings from inactive links
+            // must not crowd active links out of the widget.
+            ->whereExists(function ($ports): void {
+                $ports->selectRaw('1')
+                    ->from('ports')
+                    ->whereColumn('ports.device_id', 'sensors.device_id')
+                    ->where('ports.deleted', 0)
+                    ->where('ports.disabled', 0)
+                    ->where('ports.ifAdminStatus', 'up')
+                    ->where('ports.ifOperStatus', 'up')
+                    ->where('sensors.entPhysicalIndex', '<>', '')
+                    ->where(function ($mapping): void {
+                        // Some discovery modules store an ifIndex directly.
+                        $mapping->where(function ($direct): void {
+                            $direct->whereIn('sensors.entPhysicalIndex_measured', ['port', 'ports'])
+                                ->whereColumn('ports.ifIndex', 'sensors.entPhysicalIndex');
+                        })->orWhere(function ($entity): void {
+                            // Otherwise use the same entity mapping as attachPorts().
+                            // Do not interpret a known ifIndex as an entity index.
+                            $entity->where(function ($type): void {
+                                $type->whereNull('sensors.entPhysicalIndex_measured')
+                                    ->orWhereNotIn('sensors.entPhysicalIndex_measured', ['port', 'ports']);
+                            })->whereExists(function ($transceivers): void {
+                                $transceivers->selectRaw('1')
+                                    ->from('transceivers')
+                                    ->whereColumn('transceivers.device_id', 'sensors.device_id')
+                                    ->whereColumn('transceivers.port_id', 'ports.port_id')
+                                    ->whereNotNull('transceivers.entity_physical_index')
+                                    ->whereColumn('transceivers.entity_physical_index', 'sensors.entPhysicalIndex');
+                            });
+                        });
+                    });
+            })
             ->with('device')
             ->select('sensors.*');
 
@@ -279,9 +315,9 @@ class OpticalLightLevelsController extends BundleWidgetController
     /**
      * Attach the transceiver and port each reading belongs to.
      *
-     * LibreNMS links a sensor to a transceiver by device_id + entPhysicalIndex; core
-     * does the same in app/View/Components/TransceiverSensors.php. Both lookups are
-     * done once for the displayed rows rather than per row.
+     * Use the same mapping as the active-interface filter: explicit port indexes
+     * refer to ifIndex, while other indexes refer to transceiver entities.
+     * Lookups are batched for the displayed devices rather than per sensor.
      */
     private function attachPorts(array $rows, bool $withDetails): array
     {
@@ -301,25 +337,42 @@ class OpticalLightLevelsController extends BundleWidgetController
         // TransceiverSensors component guards the same way.
         $transceivers = Transceiver::query()
             ->whereIntegerInRaw('device_id', $deviceIds)
-            ->whereNotNull('entity_physical_index')
-            ->get()
+            ->get();
+        $byEntity = $transceivers->filter(fn (Transceiver $t): bool => $t->entity_physical_index !== null && $t->entity_physical_index !== '')
             ->keyBy(fn (Transceiver $t): string => $t->device_id . ':' . $t->entity_physical_index);
+        $byPort = $transceivers->filter(fn (Transceiver $t): bool => ! empty($t->port_id))
+            ->keyBy(fn (Transceiver $t): string => $t->device_id . ':' . $t->port_id);
 
         $ports = Port::query()
-            ->whereIntegerInRaw('port_id', $transceivers->pluck('port_id')->filter()->unique()->values()->all() ?: [0])
+            ->whereIntegerInRaw('device_id', $deviceIds)
+            ->where('deleted', 0)
+            ->where('disabled', 0)
+            ->where('ifAdminStatus', 'up')
+            ->where('ifOperStatus', 'up')
             ->get()
             ->keyBy('port_id');
+        $byIfIndex = $ports->keyBy(fn (Port $p): string => $p->device_id . ':' . $p->ifIndex);
 
         foreach ($rows as $i => $row) {
-            $index = $row['sensor']->entPhysicalIndex;
-            $transceiver = ($index === null || $index === '')
-                ? null
-                : $transceivers->get($row['sensor']->device_id . ':' . $index);
+            $sensor = $row['sensor'];
+            $index = $sensor->entPhysicalIndex;
+            $port = null;
+            $transceiver = null;
+            if ($index !== null && $index !== '') {
+                if (in_array($sensor->entPhysicalIndex_measured, ['port', 'ports'], true)) {
+                    $port = $byIfIndex->get($sensor->device_id . ':' . $index);
+                    $transceiver = $port ? $byPort->get($sensor->device_id . ':' . $port->port_id) : null;
+                } else {
+                    $transceiver = $byEntity->get($sensor->device_id . ':' . $index);
+                    $port = $transceiver ? $ports->get($transceiver->port_id) : null;
+                    if ($port && (int) $port->device_id !== (int) $sensor->device_id) {
+                        $port = null;
+                    }
+                }
+            }
 
             $rows[$i]['transceiver'] = $withDetails ? $transceiver : null;
-            $rows[$i]['port'] = $transceiver && $transceiver->port_id
-                ? $ports->get($transceiver->port_id)
-                : null;
+            $rows[$i]['port'] = $port;
         }
 
         return $rows;

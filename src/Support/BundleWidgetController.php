@@ -70,7 +70,13 @@ abstract class BundleWidgetController extends WidgetController
      */
     public function getSettings($settingsView = false): array
     {
-        $settings = parent::getSettings($settingsView);
+        if (isset(Presentation::LAYOUTS[$this->name])) {
+            $this->defaults = array_replace(Presentation::defaults($this->name), $this->defaults);
+        }
+
+        // Keep cached settings scalar: getTitle() loads them before the settings
+        // form, and core only resolves group models on the initial load.
+        $settings = parent::getSettings(false);
 
         if (! array_key_exists('device_group', $this->defaults)) {
             return $settings;
@@ -89,7 +95,12 @@ abstract class BundleWidgetController extends WidgetController
             $this->settings['device_group'] = null;
         }
 
-        return $this->settings;
+        $settings = $this->settings;
+        if ($settingsView && ! empty($settings['device_group'])) {
+            $settings['device_group'] = DeviceGroup::find($id);
+        }
+
+        return $settings;
     }
 
     /**

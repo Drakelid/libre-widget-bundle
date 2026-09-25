@@ -2,6 +2,7 @@
 
 namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 
+use App\Facades\LibrenmsConfig;
 use App\Models\Device;
 use App\Models\PollerCluster;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
@@ -112,7 +113,8 @@ class PollerHealthController extends BundleWidgetController
                 'never_polled' => $neverPolled,
                 'fresh' => max(0, $total - $staleCount),
             ],
-            'pollers' => $settings['show_pollers'] ? $this->pollers() : collect(),
+            'pollers' => $settings['show_pollers'] && $user->can('viewAny', PollerCluster::class)
+                ? $this->pollers() : collect(),
             'cutoff' => $cutoff,
             'group_label' => DeviceGroups::namesFor($user, $groupIds, __('All accessible devices')),
         ]);
@@ -154,7 +156,7 @@ class PollerHealthController extends BundleWidgetController
         }
 
         // Two intervals of grace before calling a poller dead.
-        $frequency = (int) ($poller->poller_frequency ?: 300);
+        $frequency = (int) ($poller->poller_frequency ?? LibrenmsConfig::get('service_poller_frequency', 300));
 
         return Carbon::parse($lastReport)->greaterThan(Carbon::now()->subSeconds(max(60, $frequency * 2)));
     }

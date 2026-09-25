@@ -12,6 +12,33 @@ use PHPUnit\Framework\TestCase;
  */
 class TemperatureTest extends TestCase
 {
+    public function test_stored_temperature_is_not_rescaled_by_raw_thresholds(): void
+    {
+        // LibreNMS apc_inrow-dx poller fixture: current is Celsius, limit is raw.
+        $sensor = (object) [
+            'sensor_current' => 20.9,
+            'sensor_limit' => 229,
+            'sensor_divisor' => 10,
+            'sensor_multiplier' => 1,
+        ];
+
+        $this->assertSame(20.9, Temperature::value($sensor->sensor_current, Temperature::sensorScaleFactor($sensor)));
+    }
+
+    public function test_stored_temperature_does_not_apply_snmp_multiplier_twice(): void
+    {
+        $sensor = (object) ['sensor_current' => 50, 'sensor_divisor' => 1, 'sensor_multiplier' => 2];
+
+        $this->assertSame(50.0, Temperature::value($sensor->sensor_current, Temperature::sensorScaleFactor($sensor)));
+    }
+
+    public function test_sensor_adapter_retains_legacy_raw_deci_celsius_support(): void
+    {
+        $sensor = (object) ['sensor_current' => 370, 'sensor_limit' => 90, 'sensor_divisor' => 10];
+
+        $this->assertSame(37.0, Temperature::value($sensor->sensor_current, Temperature::sensorScaleFactor($sensor)));
+    }
+
     public function test_deci_celsius_readings_are_scaled_down(): void
     {
         // 370 raw -> 37.0 °C

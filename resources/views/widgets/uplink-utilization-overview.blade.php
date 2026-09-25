@@ -117,31 +117,31 @@
                                 <span class="nmsdw-sec">{{ $port->ifAlias }}</span>
                             @endif
                         </td>
+                        <td>
+                            @include('widgets.partials.nmsdw-pill', [
+                                'status' => $row['status'],
+                                'label' => $row['utilisation_label'],
+                            ])
+                            <div class="nmsdw-sec">{{ __('peak') }} {{ $row['peak_label'] }}</div>
+                            @include('widgets.partials.nmsdw-meter', [
+                                'percent' => $row['utilisation'] ?? 0,
+                                'status' => $row['status'],
+                            ])
+                            <div class="nmsdw-sec">
+                                {{ __('Warning') }} {{ $warning_threshold }}% &middot;
+                                {{ __('Critical') }} {{ $critical_threshold }}%
+                            </div>
+                            <span class="nmsdw-sec nmsdw-show-narrow">
+                                RX: {{ $row['in_label'] }} &middot; TX: {{ $row['out_label'] }}
+                            </span>
+                        </td>
                         @if($cols['traffic'])
-                            <td>
-                                @include('widgets.partials.nmsdw-pill', [
-                                    'status' => $row['status'],
-                                    'label' => $row['utilisation_label'],
-                                ])
-                                <div class="nmsdw-sec">{{ __('peak') }} {{ $row['peak_label'] }}</div>
-                                @include('widgets.partials.nmsdw-meter', [
-                                    'percent' => $row['utilisation'] ?? 0,
-                                    'status' => $row['status'],
-                                ])
-                                <div class="nmsdw-sec">
-                                    {{ __('Warning') }} {{ $warning_threshold }}% &middot;
-                                    {{ __('Critical') }} {{ $critical_threshold }}%
-                                </div>
-                                <span class="nmsdw-sec nmsdw-show-narrow">
-                                    RX: {{ $row['in_label'] }} &middot; TX: {{ $row['out_label'] }}
-                                </span>
+                            <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
+                                <div>RX: {{ $row['in_label'] }}</div>
+                                <div>TX: {{ $row['out_label'] }}</div>
+                                <div>{{ __('Total') }}: {{ $row['total_label'] }}</div>
                             </td>
                         @endif
-                        <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
-                            <div>RX: {{ $row['in_label'] }}</div>
-                            <div>TX: {{ $row['out_label'] }}</div>
-                            <div>{{ __('Total') }}: {{ $row['total_label'] }}</div>
-                        </td>
                         @if($cols['speed'])
                             <td class="nmsdw-hide-narrow nmsdw-nowrap">{{ $row['speed_label'] }}</td>
                         @endif

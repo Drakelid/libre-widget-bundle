@@ -95,6 +95,7 @@ class BgpSessionHealthController extends BundleWidgetController
         $query->chunkById(self::CHUNK_SIZE, function ($peers) use (
             &$rows, &$stats, $settings, $recentSeconds
         ): void {
+            $chunkRows = [];
             foreach ($peers as $peer) {
                 $stats['total']++;
 
@@ -148,11 +149,7 @@ class BgpSessionHealthController extends BundleWidgetController
                     continue;
                 }
 
-                if ($settings['show'] === 'problems' && in_array($status, ['ok', 'unknown'], true)) {
-                    continue;
-                }
-
-                $rows[] = [
+                $chunkRows[] = [
                     'peer' => $peer,
                     'status' => $status,
                     'established' => $established,
@@ -164,13 +161,19 @@ class BgpSessionHealthController extends BundleWidgetController
                     'prefix' => null,
                 ];
             }
+
+            // Prefix loss can turn a stable established peer into a problem. Fetch
+            // it before filtering or limiting, in batches bounded by CHUNK_SIZE.
+            if ($settings['show_prefixes']) {
+                $chunkRows = $this->attachPrefixCounts($chunkRows, $settings['prefix_drop_percent']);
+            }
+
+            if ($settings['show'] === 'problems') {
+                $chunkRows = array_filter($chunkRows, fn (array $row): bool => in_array($row['status'], ['critical', 'warning'], true));
+            }
+
+            $rows = $this->rank(array_merge($rows, $chunkRows), $settings['limit']);
         }, 'bgpPeers.bgpPeer_id', 'bgpPeer_id');
-
-        $rows = $this->rank($rows, $settings['limit']);
-
-        if ($settings['show_prefixes']) {
-            $rows = $this->attachPrefixCounts($rows, $settings['prefix_drop_percent']);
-        }
 
         return view('widgets.bgp-session-health', $settings + $this->shared($settings) + [
             'rows' => $rows,
@@ -199,7 +202,7 @@ class BgpSessionHealthController extends BundleWidgetController
     }
 
     /**
-     * Prefix counts for the displayed rows only.
+     * Prefix counts for one bounded batch of candidate rows.
      *
      * bgpPeers_cbgp carries *_delta and *_prev columns, so a sharp drop in accepted
      * prefixes is detectable without touching RRD.
@@ -226,7 +229,14 @@ class BgpSessionHealthController extends BundleWidgetController
             ->select('device_id', 'bgpPeerIdentifier', 'afi', 'safi',
                 'AcceptedPrefixes', 'AcceptedPrefixes_prev', 'AcceptedPrefixes_delta',
                 'AdvertisedPrefixes', 'PrefixAdminLimit')
-            ->whereIntegerInRaw('device_id', array_values(array_unique(array_column($keys, 0))))
+            ->where(function ($query) use ($keys): void {
+                foreach (array_unique($keys, SORT_REGULAR) as [$deviceId, $identifier]) {
+                    $query->orWhere(function ($peerQuery) use ($deviceId, $identifier): void {
+                        $peerQuery->where('device_id', $deviceId)
+                            ->where('bgpPeerIdentifier', $identifier);
+                    });
+                }
+            })
             ->get()
             ->groupBy(fn ($r): string => $r->device_id . ':' . $r->bgpPeerIdentifier);
 

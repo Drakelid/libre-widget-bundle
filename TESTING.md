@@ -18,6 +18,33 @@ checks below have been run yet**; they are the acceptance gate for this release.
 
 ## Manual acceptance
 
+### Widget review regressions
+
+Run `composer test:widgets` for cached settings, optical attachment, power
+classification, inherited poller timing, and network widget regressions. These
+execute plugin code with small LibreNMS host doubles; they do not replace live
+database or authorization integration tests. Run `composer test:map` with Node.js
+24 for popup safety, failed-refresh retention, recovery, and refresh races.
+
+On a LibreNMS test instance also verify:
+
+- Open settings on fresh placements of every widget; no missing-heading error.
+  Open Flapping Devices settings with a saved group, then save and reopen it.
+- Customer Ports Down renders with both current enum-based and supported legacy
+  string-based port models. Hiding Uplink Traffic preserves utilization and aligns
+  table headings with cells.
+- A stable BGP peer with a large prefix drop appears in Problems only, even when
+  it falls beyond the first query chunk or the initial row limit.
+- Top Temperatures leaves a normalized 20.9 C reading unchanged when its threshold
+  is 229, while legacy raw 370 readings still display as 37 C.
+- Site Power shows overvoltage when a site has both 48 V and 60 V against a 56 V
+  upper limit. Invalid-only battery readings remain unknown, not healthy.
+- A user without poller-view permission sees no poller inventory; an authorized
+  user does. Nodes inheriting a non-default frequency use that configured interval.
+- Map popup device names containing HTML display literally. Fail one selected
+  group's request: previous markers remain with a visible stale-data warning.
+  Restore the request: the complete snapshot replaces the old data and clears it.
+
 Run against a LibreNMS 26.8.1 instance with a copy of production data.
 
 ### Install
@@ -111,6 +138,16 @@ SELECT sensor_class, COUNT(*) FROM sensors WHERE sensor_deleted=0 GROUP BY 1 ORD
 SELECT COUNT(*) FROM ports WHERE ifAlias REGEXP 'kundeport|customer|kunde';
 ```
 
+- [ ] **Optical**: only online, enabled devices and non-deleted, enabled interfaces
+      with both admin and operational status `up` appear. Check offline devices,
+      admin-down and oper-down ports, including ones with worse margins than the
+      active ports. The row limit must still fill from eligible active readings.
+      Repeat in every mode and with the Optic column hidden.
+- [ ] **Optical**: check both sensor-to-port mappings: `entPhysicalIndex_measured`
+      set to `port`/`ports` uses the device's `ifIndex`; other readings use the
+      device's transceiver entity index and its `port_id`. Unmapped readings are
+      excluded because their interface cannot be confirmed active. Identical
+      indexes on another device must not make a reading eligible.
 - [ ] **Optical**: rows are ordered by *ascending* margin — the smallest margin first.
       Spot-check one row: margin must equal `sensor_current - sensor_limit_low`.
 - [ ] **Optical**: RX and TX are labelled correctly. Compare against the raw data:

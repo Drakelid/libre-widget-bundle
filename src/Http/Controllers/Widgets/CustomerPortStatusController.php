@@ -143,7 +143,9 @@ class CustomerPortStatusController extends BundleWidgetController
                 $rows[] = [
                     'port' => $port,
                     'down_seconds' => $down,
-                    'admin_down' => strtolower((string) $port->ifAdminStatus) !== 'up',
+                    'admin_down' => strtolower((string) ($port->ifAdminStatus instanceof \BackedEnum
+                        ? $port->ifAdminStatus->value
+                        : $port->ifAdminStatus)) !== 'up',
                 ];
             }
         }, 'ports.port_id', 'port_id');

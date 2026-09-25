@@ -32,6 +32,17 @@ jobs:
       - name: Install dependencies
         run: composer update --prefer-dist --no-interaction --no-progress
 
+      - name: Widget regressions
+        run: composer test:widgets
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Map regressions
+        run: composer test:map
+
       - name: Lint every PHP file
         run: |
           set -e

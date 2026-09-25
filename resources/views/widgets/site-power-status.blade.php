@@ -11,11 +11,17 @@
         </div>
     @endif
 
+    @if($suspect_sites > 0)
+        <div class="nmsdw-note">
+            {{ __(':count sites reported a reading outside plausible range (for example a negative battery runtime); those readings were ignored.', ['count' => $suspect_sites]) }}
+        </div>
+    @endif
+
     @if(empty($rows))
         @include('widgets.partials.nmsdw-empty', [
             'message' => $battery_sites === 0
                 ? __('No battery or runtime sensors found.')
-                : __('All sites are on mains with healthy reserve.'),
+                : __('No power or battery conditions detected in the available readings.'),
             'hint' => $battery_sites === 0
                 ? __('This widget looks for charge and runtime sensors. UPS or rectifier support may not be discovered on these devices, or "Only devices with battery data" can be turned off to include anything reporting voltage or power.')
                 : null,
@@ -99,14 +105,9 @@
         @endforeach
 
     @endif
-        @if($show === 'problems' || $suspect_sites > 0)
+        @if($show === 'problems')
             <div class="nmsdw-note">
-                @if($show === 'problems')
-                    {{ __('Showing sites with a power or battery condition. :count with battery data in total.', ['count' => $battery_sites]) }}
-                @endif
-                @if($suspect_sites > 0)
-                    {{ __(':count sites reported a reading outside plausible range (for example a negative battery runtime); those readings were ignored.', ['count' => $suspect_sites]) }}
-                @endif
+                {{ __('Showing sites with a power or battery condition. :count with battery data in total.', ['count' => $battery_sites]) }}
             </div>
         @endif
     @endif

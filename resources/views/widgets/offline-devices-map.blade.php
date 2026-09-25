@@ -32,6 +32,9 @@
         const group_radius = {{ (int) $radius }};
         const fit_to_markers = {{ $fit_to_markers ? 'true' : 'false' }};
         const endpoint = '{{ route('maps.getdevices') }}';
+        let refreshGeneration = 0;
+        let hasCompleteData = false;
+        let requestWarning;
 
         function fetchGroup(groupId) {
             return $.ajax({
@@ -67,7 +70,18 @@
             }
 
             var marker = L.marker(new L.LatLng(device.lat, device.lng), options);
-            marker.bindPopup('<a href="' + device.url + '">' + device.sname + '</a>');
+            var link = document.createElement('a');
+            link.textContent = device.sname;
+            // Device labels are plain text, and popup links must use a web URL.
+            try {
+                var url = new URL(device.url, window.location.href);
+                if (url.protocol === 'http:' || url.protocol === 'https:') {
+                    link.href = url.href;
+                }
+            } catch (error) {
+                // Keep the label visible if the endpoint returns an invalid URL.
+            }
+            marker.bindPopup(link);
 
             return marker;
         }
@@ -116,6 +130,7 @@
         }
 
         function populate() {
+            var generation = ++refreshGeneration;
             // No groups selected means every accessible device; core uses 0 for that.
             var wanted = group_ids.length ? group_ids : [0];
             var merged = {};
@@ -129,8 +144,8 @@
                         Object.assign(merged, data || {});
                     })
                     .fail(function (error) {
-                        // Report once, and still draw whatever the other groups returned.
-                        if (! failed) {
+                        // Keep the last complete snapshot if any group fails.
+                        if (! failed && generation === refreshGeneration) {
                             failed = true;
 
                             if (typeof toastr !== 'undefined') {
@@ -139,8 +154,17 @@
                         }
                     })
                     .always(function () {
-                        if (--outstanding === 0) {
-                            render(merged);
+                        if (--outstanding === 0 && generation === refreshGeneration) {
+                            if (failed) {
+                                requestWarning.textContent = hasCompleteData
+                                    ? 'Map refresh failed. Showing previous device data; it may be out of date.'
+                                    : 'Map data unavailable. Device status could not be loaded.';
+                                requestWarning.hidden = false;
+                            } else {
+                                render(merged);
+                                hasCompleteData = true;
+                                requestWarning.hidden = true;
+                            }
                         }
                     });
             });
@@ -151,6 +175,16 @@
                 loadjs('js/leaflet.awesome-markers.min.js', function () {
                     loadjs('js/L.Control.Locate.min.js', function () {
                         init_map(map_id, map_config).scrollWheelZoom.disable();
+                        var warningControl = L.control({ position: 'bottomleft' });
+                        warningControl.onAdd = function () {
+                            requestWarning = document.createElement('div');
+                            requestWarning.className = 'alert alert-warning';
+                            requestWarning.setAttribute('role', 'status');
+                            requestWarning.style.maxWidth = '280px';
+                            requestWarning.hidden = true;
+                            return requestWarning;
+                        };
+                        warningControl.addTo(get_map(map_id));
                         populate();
 
                         $('#' + map_id)
@@ -168,6 +202,7 @@
                                 populate();
                             })
                             .on('destroy', function () {
+                                ++refreshGeneration;
                                 destroy_map(map_id);
                             });
                     });

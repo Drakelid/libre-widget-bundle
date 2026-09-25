@@ -152,18 +152,24 @@ final class Temperature
     }
 
     /**
-     * Eloquent-facing adapter: derive the scale factor for a Sensor model.
+     * Stored Sensor readings are normally normalized by LibreNMS polling.
+     * Thresholds can still use vendor units (for example APC InRow), so neither
+     * their magnitude nor the raw SNMP divisor can determine the stored value's units.
+     * Keep the legacy raw-reading fallback only when the current value itself
+     * is outside the already-plausible range.
      *
      * @param  object  $sensor  a LibreNMS App\Models\Sensor
      */
     public static function sensorScaleFactor(object $sensor): float
     {
+        $current = $sensor->sensor_current ?? null;
+
+        if (! is_numeric($current) || ((float) $current > -80 && (float) $current < 200)) {
+            return 1.0;
+        }
+
         return self::scaleFactor(
-            [
-                $sensor->sensor_current ?? null,
-                $sensor->sensor_limit ?? null,
-                $sensor->sensor_limit_warn ?? null,
-            ],
+            [$current],
             $sensor->sensor_divisor ?? 1,
             $sensor->sensor_multiplier ?? 1,
         );

@@ -65,7 +65,14 @@
         "test": [
             "@php tests/load-check.php",
             "@php tests/blade-lint.php",
-            "@php vendor/bin/phpunit"
-        ]
+            "@php vendor/bin/phpunit",
+            "@test:widgets"
+        ],
+        "test:widgets": [
+            "@php tests/widget-regression.php",
+            "@php tests/health-regression.php",
+            "@php tests/network-regression.php"
+        ],
+        "test:map": "node tests/map-regression.cjs"
     }
 }

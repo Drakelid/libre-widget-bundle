@@ -143,12 +143,14 @@ class SitePowerStatusController extends BundleWidgetController
                     'runtime_minutes' => null,
                     'charge_percent' => null,
                     'voltage' => null,
+                    'voltage_max' => null,
                     'load_watts' => null,
                     'states' => [],
                     'device_count' => 0,
                     'devices' => [],
                     'has_battery' => false,
                     'suspect' => 0,
+                    'unknown_state' => false,
                 ];
 
                 if (in_array($sensor->sensor_class, self::BATTERY_CLASSES, true)) {
@@ -176,6 +178,12 @@ class SitePowerStatusController extends BundleWidgetController
 
         foreach ($rows as $i => $row) {
             $rows[$i]['status'] = $this->classify($row, $settings);
+            // Display the high reading when it is the voltage causing the alarm.
+            if ($row['voltage_max'] !== null && $settings['voltage_high'] !== null
+                && $row['voltage_max'] > $settings['voltage_high']
+                && ! ($settings['voltage_low'] !== null && $row['voltage'] < $settings['voltage_low'])) {
+                $rows[$i]['voltage'] = $row['voltage_max'];
+            }
             $rows[$i]['runtime_label'] = $row['runtime_minutes'] === null
                 ? null
                 : $this->formatMinutes($row['runtime_minutes']);
@@ -265,6 +273,9 @@ class SitePowerStatusController extends BundleWidgetController
                 $site['voltage'] = $site['voltage'] === null
                     ? $value
                     : min($site['voltage'], $value);
+                $site['voltage_max'] = $site['voltage_max'] === null
+                    ? $value
+                    : max($site['voltage_max'], $value);
                 break;
 
             case 'power':
@@ -280,10 +291,14 @@ class SitePowerStatusController extends BundleWidgetController
                 $translation = $sensor->currentTranslation();
 
                 if ($translation === null) {
+                    $site['unknown_state'] = true;
                     break;
                 }
 
                 $generic = (int) $translation->state_generic_value;
+                if ($generic === 3) {
+                    $site['unknown_state'] = true;
+                }
 
                 // 0 ok, 1 warning, 2 critical, 3 unknown -- LibreNMS convention.
                 if ($generic > 0 && $generic < 3) {
@@ -327,12 +342,12 @@ class SitePowerStatusController extends BundleWidgetController
                 return 'critical';
             }
 
-            if ($settings['voltage_high'] !== null && $voltage > $settings['voltage_high']) {
+            if ($settings['voltage_high'] !== null && $site['voltage_max'] > $settings['voltage_high']) {
                 return 'critical';
             }
         }
 
-        return $status;
+        return $status === 'ok' && ($site['suspect'] > 0 || $site['unknown_state']) ? 'unknown' : $status;
     }
 
     /** Worst first, then the site with least runtime remaining. */
