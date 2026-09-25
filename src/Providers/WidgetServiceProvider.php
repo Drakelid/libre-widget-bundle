@@ -3,6 +3,7 @@
 namespace Drakelid\NmsDashWidgets\Providers;
 
 use App\Models\Plugin;
+use Drakelid\NmsDashWidgets\Support\Assets;
 use Drakelid\NmsDashWidgets\Hooks\MenuEntry;
 use Drakelid\NmsDashWidgets\Hooks\Settings;
 use Drakelid\NmsDashWidgets\Support\Version;
@@ -150,6 +151,13 @@ class WidgetServiceProvider extends ServiceProvider
         View::getFinder()->addLocation($views);
 
         $this->loadTranslationsFrom(__DIR__ . '/../../resources/lang', self::PLUGIN_NAME);
+
+        // Core renders every dashboard widget inside the same scrollable body. Add
+        // the shared stylesheet to the dashboard itself so its scrollbar rules also
+        // cover built-in widgets and dashboards with no plugin widget placement.
+        View::composer('overview.default', static function (): void {
+            View::startPush('styles', '<style id="' . Assets::styleElementId() . '">' . Assets::css() . '</style>');
+        });
 
         // Make the package version available to the plugin's own pages. Registered in
         // boot() rather than register() so the view factory is guaranteed to exist.

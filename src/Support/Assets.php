@@ -5,14 +5,12 @@ namespace Drakelid\NmsDashWidgets\Support;
 /**
  * Static assets shipped with the plugin.
  *
- * Widgets are delivered as HTML fragments over AJAX and injected into the dashboard,
- * so there is no layout to hook a stylesheet into. The original widgets each carried
- * their own inline <style> block, which meant every widget instance re-emitted its
- * own copy of near-identical CSS.
+ * Widgets are delivered as HTML fragments over AJAX. The dashboard view composer
+ * loads this stylesheet for all widgets, including core widgets. The fragment
+ * partial still loads it when a widget is rendered outside that dashboard view.
  *
- * Here a single stylesheet is shared by all six widgets and injected into <head>
- * exactly once per page (see partials/nmsdw-style.blade.php), so additional widget
- * instances and refreshes cost nothing.
+ * A single style element is shared across all twelve plugin widgets and dashboard
+ * scrollbars, so additional widget instances and refreshes cost nothing.
  */
 final class Assets
 {

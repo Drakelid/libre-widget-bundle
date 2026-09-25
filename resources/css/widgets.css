@@ -1,9 +1,10 @@
 /*
  * nmsdashwidgets - shared widget styles
  *
- * Every rule is scoped under .nmsdw-widget so nothing leaks into the rest of the
- * dashboard. Colours are driven by custom properties defined twice: light defaults
- * on .nmsdw-widget, dark overrides under `.dark`.
+ * Widget content rules are scoped under .nmsdw-widget. Scrollbar rules target the
+ * dashboard's shared widget bodies so built-in and plugin widgets look consistent.
+ * Colours are driven by custom properties defined twice: light defaults on
+ * .nmsdw-widget, dark overrides under `.dark`.
  *
  * LibreNMS 26.x declares its dark variant as:
  *     @custom-variant dark (&:where(.dark, .dark *));
@@ -57,45 +58,45 @@
     --nmsdw-unknown: #acb6bf;
 }
 
-/* Core owns the scrolling widget body, so the shared style partial marks it. The
-   descendant selector also covers nested scrollers such as the map outage list. */
-.nmsdw-scroll-region {
+/* Core owns the scrolling widget body. This selector includes every dashboard
+   widget and its nested scrollers, including Leaflet controls and outage lists. */
+.grid-stack .grid-stack-item-content > [id^="widget_body_"] {
     --nmsdw-scroll-thumb: rgba(46, 51, 56, 0.42);
     --nmsdw-scroll-thumb-hover: rgba(46, 51, 56, 0.65);
 }
 
-.dark .nmsdw-scroll-region {
+.dark .grid-stack .grid-stack-item-content > [id^="widget_body_"] {
     --nmsdw-scroll-thumb: rgba(225, 231, 237, 0.40);
     --nmsdw-scroll-thumb-hover: rgba(225, 231, 237, 0.64);
 }
 
-.nmsdw-scroll-region,
-.nmsdw-scroll-region * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--nmsdw-scroll-thumb) transparent;
+.grid-stack .grid-stack-item-content > [id^="widget_body_"],
+.grid-stack .grid-stack-item-content > [id^="widget_body_"] * {
+    scrollbar-width: thin !important;
+    scrollbar-color: var(--nmsdw-scroll-thumb) transparent !important;
 }
 
-.nmsdw-scroll-region::-webkit-scrollbar,
-.nmsdw-scroll-region *::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+.grid-stack .grid-stack-item-content > [id^="widget_body_"]::-webkit-scrollbar,
+.grid-stack .grid-stack-item-content > [id^="widget_body_"] *::-webkit-scrollbar {
+    width: 8px !important;
+    height: 8px !important;
 }
 
-.nmsdw-scroll-region::-webkit-scrollbar-track,
-.nmsdw-scroll-region *::-webkit-scrollbar-track {
-    background: transparent;
+.grid-stack .grid-stack-item-content > [id^="widget_body_"]::-webkit-scrollbar-track,
+.grid-stack .grid-stack-item-content > [id^="widget_body_"] *::-webkit-scrollbar-track {
+    background: transparent !important;
 }
 
-.nmsdw-scroll-region::-webkit-scrollbar-thumb,
-.nmsdw-scroll-region *::-webkit-scrollbar-thumb {
-    border: 1px solid transparent;
-    border-radius: 999px;
-    background: var(--nmsdw-scroll-thumb) padding-box;
+.grid-stack .grid-stack-item-content > [id^="widget_body_"]::-webkit-scrollbar-thumb,
+.grid-stack .grid-stack-item-content > [id^="widget_body_"] *::-webkit-scrollbar-thumb {
+    border: 1px solid transparent !important;
+    border-radius: 999px !important;
+    background: var(--nmsdw-scroll-thumb) padding-box !important;
 }
 
-.nmsdw-scroll-region::-webkit-scrollbar-thumb:hover,
-.nmsdw-scroll-region *::-webkit-scrollbar-thumb:hover {
-    background-color: var(--nmsdw-scroll-thumb-hover);
+.grid-stack .grid-stack-item-content > [id^="widget_body_"]::-webkit-scrollbar-thumb:hover,
+.grid-stack .grid-stack-item-content > [id^="widget_body_"] *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--nmsdw-scroll-thumb-hover) !important;
 }
 
 /* ---------- primitives ---------- */
