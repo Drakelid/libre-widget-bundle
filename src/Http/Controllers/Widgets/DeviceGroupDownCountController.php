@@ -3,6 +3,7 @@
 namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 
 use App\Models\DeviceGroup;
+use App\Models\Device;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
@@ -43,6 +44,7 @@ class DeviceGroupDownCountController extends BundleWidgetController
         'background_color' => '#d9534f',
         'text_color' => '#ffffff',
         'show_total' => '1',
+        'show_unique_total' => '0',
         'show_header' => '1',
         'show_group_totals' => '1',
         'display_mode' => 'auto',
@@ -65,6 +67,7 @@ class DeviceGroupDownCountController extends BundleWidgetController
         $settings['background_color'] = Cast::color($settings['background_color'] ?? null, '#d9534f');
         $settings['text_color'] = Cast::color($settings['text_color'] ?? null, '#ffffff');
         $settings['show_total'] = Cast::bool($settings['show_total'] ?? true, true);
+        $settings['show_unique_total'] = Cast::bool($settings['show_unique_total'] ?? false, false);
         $settings['show_header'] = Cast::bool($settings['show_header'] ?? true, true);
         $settings['show_group_totals'] = Cast::bool($settings['show_group_totals'] ?? true, true);
         $settings['exclude_ignored_disabled'] = Cast::bool($settings['exclude_ignored_disabled'] ?? true, true);
@@ -121,15 +124,40 @@ class DeviceGroupDownCountController extends BundleWidgetController
         $totalDown = (int) $groups->sum('down_count');
         $totalDevices = (int) $groups->sum('total_count');
         $affected = $groups->where('down_count', '>', 0)->count();
+        $devices = collect();
+        if ($groupIds) {
+            $deviceQuery = Device::hasAccess($user);
+            DeviceGroups::scopeToDevices($deviceQuery, $groupIds);
+            if ($excludeIgnoredDisabled) {
+                $deviceQuery->where('disabled', 0)->where('ignore', 0);
+            }
+            $devices = $deviceQuery->with(['groups' => fn ($query) => $query->whereIntegerInRaw('device_groups.id', $groupIds)])
+                ->get(['device_id', 'status', 'last_polled', 'disabled']);
+            foreach ($devices as $device) {
+                $device->maintenance_down = ! $device->status && $device->isUnderMaintenance();
+            }
+        }
+        $uniqueDown = $devices->where('status', false)->count();
+        $maintenanceDown = $devices->where('maintenance_down', true)->count();
+        $byGroup = [];
+        foreach ($devices as $device) {
+            foreach ($device->groups as $group) {
+                $byGroup[$group->id][] = $device;
+            }
+        }
 
         // Proportion matters as much as the raw count: 2 of 2 down is an outage,
         // 22 of 500 is a bad afternoon. Layouts use this to size their bars.
-        $groups = $groups->map(function ($group) {
+        $groups = $groups->map(function ($group) use ($byGroup) {
             $total = max(0, (int) $group->total_count);
             $down = max(0, (int) $group->down_count);
 
             $group->healthy_count = max(0, $total - $down);
             $group->down_percent = $total > 0 ? ($down / $total) * 100 : 0.0;
+            $members = collect($byGroup[$group->id] ?? []);
+            $group->maintenance_down = $members->where('maintenance_down', true)->count();
+            $group->unexpected_down = max(0, $down - $group->maintenance_down);
+            $group->observed_at = $members->contains(fn ($device) => ! $device->last_polled) ? null : $members->min('last_polled');
 
             // The row bar reads as a health meter: full means everything is up. A group
             // with no devices counts as healthy rather than showing an empty bar.
@@ -152,10 +180,16 @@ class DeviceGroupDownCountController extends BundleWidgetController
             'hidden_count' => $groups->count() - $visible->count(),
             'total_down' => $totalDown,
             'total_devices' => $totalDevices,
+            'unique_down' => $uniqueDown,
+            'unique_devices' => $devices->count(),
+            'overlap_down' => max(0, $totalDown - $uniqueDown),
+            'overlap_devices' => max(0, $totalDevices - $devices->count()),
+            'maintenance_down' => $maintenanceDown,
+            'unexpected_down' => max(0, $uniqueDown - $maintenanceDown),
             'affected_groups' => $affected,
             'worst_group' => $groups->sortByDesc('down_count')->first(),
             'layout' => $layout,
-            'has_selection' => ! empty($groupIds),
+            'has_selection' => ! empty($settings['device_groups']),
         ]);
     }
 
@@ -189,6 +223,7 @@ class DeviceGroupDownCountController extends BundleWidgetController
             'density' => Cast::choice($settings['density'] ?? 'comfortable', self::DENSITIES, 'comfortable'),
             'card_min_width' => Cast::int($settings['card_min_width'] ?? 170, 120, 320, 170),
             'show_total' => Cast::bool($settings['show_total'] ?? true, true),
+            'show_unique_total' => Cast::bool($settings['show_unique_total'] ?? false, false),
             'show_header' => Cast::bool($settings['show_header'] ?? true, true),
             'show_group_totals' => Cast::bool($settings['show_group_totals'] ?? true, true),
             'exclude_ignored_disabled' => Cast::bool($settings['exclude_ignored_disabled'] ?? true, true),

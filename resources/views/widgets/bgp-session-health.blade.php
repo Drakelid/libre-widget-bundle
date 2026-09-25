@@ -12,14 +12,15 @@
         @include('widgets.partials.nmsdw-tile', ['value' => $summary['established'], 'label' => __('Established')])
         @include('widgets.partials.nmsdw-tile', ['value' => $summary['down'], 'label' => __('Down')])
         @include('widgets.partials.nmsdw-tile', ['value' => $summary['recent'], 'label' => __('Recently up')])
-        @include('widgets.partials.nmsdw-tile', ['value' => $summary['admin_down'], 'label' => __('Shut / unknown')])
+        @include('widgets.partials.nmsdw-tile', ['value' => $summary['admin_down'], 'label' => __('Administratively shut')])
+        @include('widgets.partials.nmsdw-tile', ['value' => $summary['unknown'], 'label' => __('Unknown admin state')])
     </div>
 
     @if(empty($rows))
         @include('widgets.partials.nmsdw-empty', [
             'message' => $summary['total'] === 0
                 ? __('No BGP peers found.')
-                : __('All BGP sessions are healthy.'),
+                : ($show === 'established_only' ? __('No established sessions match these filters.') : __('No sessions match this display mode. Shut and unknown sessions may be excluded.')),
             'hint' => $summary['total'] === 0
                 ? __('The bgp-peers discovery module may be disabled, or these devices do not run BGP.')
                 : null,
@@ -34,9 +35,15 @@
                 'value' => $r['state_label'],
                 'unit' => $r['peer']->astext ?: null,
                 'status' => $r['status'],
+                'observed_at' => $r['observed_at'],
                 'meta' => array_values(array_filter([
-                    $r['prefix'] ? [__('Prefixes'), number_format($r['prefix']['accepted'])] : null,
-                    $r['recent'] ? [__('Note'), __('just re-established')] : null,
+                    $cols['prefixes'] ? [__('Prefixes'), $r['prefix'] ? number_format($r['prefix']['accepted']) : __('Unavailable for this peer/context')] : null,
+                    $cols['uptime'] ? [__('Uptime'), $r['uptime_seconds'] . ' s'] : null,
+                    $cols['error'] ? [__('Last error'), $r['peer']->bgpPeerLastErrorText] : null,
+                    [__('VRF ID'), $r['peer']->vrf_id ?? '0'],
+                    !empty($r['reasons']) ? [__('Reason'), implode('; ', $r['reasons'])] : null,
+                    $r['admin_shut'] ? [__('Admin'), __('Shut')] : null,
+                    [__('Sample age source'), __('Device last poll')],
                 ])),
                 'href' => $r['peer']->device
                     ? \LibreNMS\Util\Url::deviceUrl($r['peer']->device, ['tab' => 'routing', 'proto' => 'bgp'])
@@ -73,15 +80,22 @@
                     <tr>
                         <td class="nmsdw-strong">
                             @include('widgets.partials.nmsdw-device-cell', ['linkDevice' => $peer->device])
+                            <span class="nmsdw-sec">{{ __('Device last poll') }}</span>
+                            @include('widgets.partials.nmsdw-data-age', ['timestamp' => $row['observed_at']])
                         </td>
                         <td>
-                            <span class="nmsdw-strong">{{ $peer->bgpPeerIdentifier }}</span>
+                            @if($peer->device)
+                                <a class="nmsdw-strong" href="{{ \LibreNMS\Util\Url::deviceUrl($peer->device, ['tab' => 'routing', 'proto' => 'bgp']) }}">{{ $peer->bgpPeerIdentifier }}</a>
+                            @else
+                                <span class="nmsdw-strong">{{ $peer->bgpPeerIdentifier }}</span>
+                            @endif
                             <span class="nmsdw-sec">
                                 AS{{ $peer->bgpPeerRemoteAs }}@if($peer->astext) &middot; {{ $peer->astext }}@endif
                             </span>
                             @if($peer->bgpPeerDescr)
                                 <span class="nmsdw-sec">{{ $peer->bgpPeerDescr }}</span>
                             @endif
+                            <span class="nmsdw-sec">{{ __('VRF ID') }}: {{ $peer->vrf_id ?? '0' }}</span>
                         </td>
                         <td class="nmsdw-nowrap">
             {{-- Show the protocol state as reported. "shut" is only claimed when the
@@ -93,9 +107,7 @@
                             @if($row['admin_shut'])
                                 <span class="nmsdw-sec">{{ __('admin shut') }}</span>
                             @endif
-                            @if($row['recent'])
-                                <span class="nmsdw-sec">{{ __('just re-established') }}</span>
-                            @endif
+                            @foreach($row['reasons'] as $reason)<span class="nmsdw-sec">{{ $reason }}</span>@endforeach
                         </td>
                         @if($cols['uptime'])
                             <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
@@ -119,7 +131,7 @@
                                         <div class="nmsdw-sec">{{ __('limit') }} {{ number_format($row['prefix']['limit']) }}</div>
                                     @endif
                                 @else
-                                    <span class="nmsdw-muted">&mdash;</span>
+                                    <span class="nmsdw-muted" title="{{ __('Prefix data unavailable for this peer/context') }}">&mdash;</span>
                                 @endif
                             </td>
                         @endif
@@ -134,4 +146,5 @@
         </table>
     @endif
     @endif
+    @include('widgets.partials.nmsdw-result-count', ['shown' => count($rows), 'matched' => $summary['matched'], 'noun' => __('sessions in this mode')])
 </div>

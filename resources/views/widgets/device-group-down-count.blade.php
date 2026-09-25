@@ -31,6 +31,15 @@
             'hint' => __('The selected groups no longer exist, or you do not have access to them.'),
         ])
     @else
+        @include('widgets.partials.nmsdw-result-count', ['shown' => $groups->count(), 'matched' => $group_count, 'noun' => __('groups')])
+        <div class="nmsdw-note">
+            {{ __('Group sums: :down down / :total memberships.', ['down' => $total_down, 'total' => $total_devices]) }}
+            {{ __('Overlap adds :down down and :total total memberships.', ['down' => $overlap_down, 'total' => $overlap_devices]) }}
+            @if($show_unique_total)
+                {{ __('Unique devices: :down down / :total total.', ['down' => $unique_down, 'total' => $unique_devices]) }}
+            @endif
+            {{ __('Unique outages: :unexpected unexpected, :maintenance in maintenance.', ['unexpected' => $unexpected_down, 'maintenance' => $maintenance_down]) }}
+        </div>
         @if($show_header)
             <div class="nmsdw-dgdc-header">
                 <div>
@@ -44,7 +53,7 @@
                             {{ __('all healthy') }}
                         @endif
                         @if($total_devices > 0)
-                            &middot; {{ __(':count devices', ['count' => $total_devices]) }}
+                            &middot; {{ __(':count group memberships', ['count' => $total_devices]) }}
                         @endif
                     </div>
                 </div>
@@ -65,7 +74,7 @@
                 <span class="nmsdw-hero-body">
                     <span class="nmsdw-hero-value">{{ $heroGroup ? $heroGroup->down_count : $total_down }}</span>
                     <span class="nmsdw-hero-label">
-                        {{ $heroGroup ? $heroGroup->name : __('devices down') }}
+                        {{ $heroGroup ? $heroGroup->name : __('down group memberships') }}
                     </span>
                 </span>
                 <span class="nmsdw-hero-meta">
@@ -75,7 +84,7 @@
                     @else
                         <span>{{ __(':a of :b groups', ['a' => $affected_groups, 'b' => $group_count]) }}</span>
                         @if($total_devices > 0)
-                            <span>{{ number_format(($total_down / max(1, $total_devices)) * 100, 1) }}% {{ __('of estate') }}</span>
+                            <span>{{ number_format(($total_down / max(1, $total_devices)) * 100, 1) }}% {{ __('of group memberships') }}</span>
                         @endif
                     @endif
                 </span>
@@ -218,5 +227,15 @@
                 {{ __(':count healthy groups hidden.', ['count' => $hidden_count]) }}
             </div>
         @endif
+        <details>
+            <summary>{{ __('Outage classification and oldest poll by group') }}</summary>
+            @foreach($groups as $group)
+                <div>
+                    <a href="{{ $groupUrl($group) }}">{{ $group->name }}</a>:
+                    {{ __(':unexpected unexpected / :maintenance maintenance', ['unexpected' => $group->unexpected_down, 'maintenance' => $group->maintenance_down]) }}
+                    @include('widgets.partials.nmsdw-data-age', ['timestamp' => $group->observed_at])
+                </div>
+            @endforeach
+        </details>
     @endif
 </div>

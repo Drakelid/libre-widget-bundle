@@ -13,6 +13,11 @@
         <input type="number" step="1" min="1" max="50" class="form-control"
                name="device_count" id="device_count-{{ $id }}" value="{{ $device_count }}">
     </div>
+    @include('widgets.partials.nmsdw-device-groups-field', ['id' => $id, 'selected_device_groups' => $selected_device_groups, 'help' => __('Leave empty to include all accessible devices.')])
+    <div class="form-group">
+        <label for="added_within_days-{{ $id }}">{{ __('Added within days (0 = all time)') }}</label>
+        <input class="form-control" type="number" min="0" max="3650" name="added_within_days" id="added_within_days-{{ $id }}" value="{{ $added_within_days }}">
+    </div>
     <hr>
 
     @include('widgets.partials.nmsdw-column-fields', [
@@ -35,4 +40,10 @@
         'card_min_width' => $card_min_width,
     ])
 
+@endsection
+
+@section('javascript')
+    <script type="text/javascript">
+        init_select2('#device_groups-{{ $id }}', 'device-group', {});
+    </script>
 @endsection

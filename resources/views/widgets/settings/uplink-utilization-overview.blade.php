@@ -1,6 +1,16 @@
 @extends('widgets.settings.base')
 
 @section('form')
+    <div class="checkbox"><label>
+        <input type="hidden" name="history_enabled" value="0">
+        <input type="checkbox" name="history_enabled" value="1" @checked((bool) $history_enabled)>
+        {{ __('Check sustained congestion for displayed uplinks') }}
+    </label></div>
+    <div class="form-group">
+        <label>{{ __('Congestion history window / minutes') }}</label>
+        <input class="form-control" type="number" name="history_minutes" min="5" max="1440" value="{{ $history_minutes }}">
+        <span class="help-block">{{ __('Uses historical samples above the warning threshold. Unavailable or incomplete history is shown explicitly; summary tiles remain current samples.') }}</span>
+    </div>
     <div class="form-group">
         <label for="title-{{ $id }}" class="control-label">{{ __('Widget title') }}</label>
         <input type="text" class="form-control" name="title" id="title-{{ $id }}"

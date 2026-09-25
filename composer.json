@@ -1,6 +1,6 @@
 {
     "name": "drakelid/librenms-dashboard-widgets",
-    "description": "LibreNMS plugin bundling six custom dashboard widgets: device group down count, top bandwidth by device group, uplink utilization overview, top device temperatures, flapping devices and recently added devices.",
+    "description": "LibreNMS plugin bundling twelve dashboard widgets for network, device, optical, power and poller health.",
     "type": "library",
     "license": "MIT",
     "keywords": [
@@ -71,8 +71,12 @@
         "test:widgets": [
             "@php tests/widget-regression.php",
             "@php tests/health-regression.php",
-            "@php tests/network-regression.php"
+            "@php tests/network-regression.php",
+            "@php tests/operations-regression.php",
+            "@php tests/render-regression.php",
+            "@php tests/preview-regression.php"
         ],
-        "test:map": "node tests/map-regression.cjs"
+        "test:map": "node tests/map-regression.cjs",
+        "test:integration": "@php tests/librenms-integration.php"
     }
 }

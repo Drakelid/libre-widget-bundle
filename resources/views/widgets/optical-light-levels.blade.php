@@ -1,174 +1,95 @@
 @include('widgets.partials.nmsdw-style')
-
 <div class="{{ $widget_classes }} nmsdw-optical">
     @if($show_header)
-
         <div class="nmsdw-head">{{ $heading ?: __('Optical light levels') }}</div>
-        <div class="nmsdw-sub">
-            {{ $group_label }} &middot; {{ $ordering }}
-        </div>
+        <div class="nmsdw-sub">{{ $group_label }} &middot; {{ $ordering }} &middot; {{ __('Active interfaces on online devices') }}</div>
     @endif
-
     @include('widgets.partials.nmsdw-regex-warning', ['problems' => $regex_problems])
-
+    <div class="nmsdw-note">
+        {{ __('Excluded: :mapping without an interface mapping, :inactive on inactive interfaces, :limits without a low threshold, :direction by direction, :regex by regex.', ['mapping' => $skipped_unmapped, 'inactive' => $skipped_inactive, 'limits' => $skipped_no_limit, 'direction' => $skipped_direction, 'regex' => $skipped_regex]) }}
+    </div>
     @if(empty($rows))
-        {{--
-            An empty result has several very different causes, and "nothing matched" on
-            its own sends people looking in the wrong place. Say which filter consumed
-            the readings -- especially the low-threshold one, which is on by default and
-            discards every optic that reports power without limits.
-        --}}
         @include('widgets.partials.nmsdw-empty', [
-            'message' => $total_seen === 0
-                ? __('No optical sensors found.')
-                : __('No optical readings passed the filters.'),
-            'hint' => $total_seen === 0
-                ? __('This widget needs transceivers that report digital diagnostics (sensor class "dbm"). The optics in use may not support DDM, or the device groups selected have none.')
-                : trim(implode(' ', array_filter([
-                    __(':count optical readings were found.', ['count' => $total_seen]),
-                    $skipped_no_limit > 0
-                        ? __(':count were hidden because they have no low threshold: the optic reports none. Set a low alarm threshold in the widget settings to rank them, or untick "Only show readings with a low threshold" to list them anyway.', ['count' => $skipped_no_limit])
-                        : null,
-                    $skipped_direction > 0
-                        ? __(':count did not identify as receive or transmit; try the combined mode.', ['count' => $skipped_direction])
-                        : null,
-                    $skipped_regex > 0
-                        ? __(':count were excluded by the regex filters.', ['count' => $skipped_regex])
-                        : null,
-                ]))),
+            'message' => $total_seen + $skipped_unmapped + $skipped_inactive === 0
+                ? __('No optical readings are available on online devices in the selected scope.')
+                : __('Optical readings were found, but none passed the active-interface and sensor filters.'),
+            'hint' => __('Check interface mappings, device groups and threshold filters. Custom low thresholds can include optics without vendor limits.'),
         ])
-    @else
-        @if(in_array($layout, ['cards', 'compact', 'tiles'], true))
-        {{-- Alternative layouts share one renderer; each widget only supplies records. --}}
+    @elseif(in_array($layout, ['cards', 'compact', 'tiles'], true))
         @php
-            $records = collect($rows)->map(fn ($r) => [
-                'title' => e($r['sensor']->device?->displayName() ?? __('Unknown device')),
-                'subtitle' => $r['sensor']->sensor_descr,
-                'value' => number_format($r['current'], 2) . ' dBm',
-                'unit' => ! $cols['margin']
-                    ? null
-                    : ($r['margin'] === null
-                        ? __('no threshold')
-                        : __(':v dB margin', ['v' => number_format($r['margin'], 2)])),
-                'status' => $r['status'],
-                'meta' => array_values(array_filter([
-                    $cols['thresholds'] && $r['low'] !== null
-                        ? [__('Low'), number_format($r['low'], 2) . ($r['custom']['low'] ? ' ' . __('(custom)') : '')]
-                        : null,
-                    $cols['thresholds'] && $r['high'] !== null
-                        ? [__('High'), number_format($r['high'], 2) . ($r['custom']['high'] ? ' ' . __('(custom)') : '')]
-                        : null,
-                    $r['direction'] ? [__('Dir'), strtoupper($r['direction'])] : null,
-                    $cols['optic'] && $r['transceiver'] && $r['transceiver']->model
-                        ? [__('Optic'), trim($r['transceiver']->vendor . ' ' . $r['transceiver']->model)]
-                        : null,
-                ])),
-                'href' => $r['port'] ? \LibreNMS\Util\Url::portUrl($r['port']) : null,
-            ])->all();
+            $records = collect($rows)->map(function ($r) use ($cols) {
+                $levels = []; $margins = []; $limits = []; $changes = [];
+                foreach ($r['readings'] as $reading) {
+                    $dir = strtoupper($reading['direction'] ?? '?');
+                    $levels[] = $dir . ' ' . number_format($reading['current'], 2) . ' dBm';
+                    $margins[] = $dir . ' ' . ($reading['margin'] === null ? __('n/a') : number_format($reading['margin'], 2) . ' dB');
+                    $limits[] = $dir . ' ' . __('Low') . ' ' . ($reading['low'] === null ? __('n/a') : number_format($reading['low'], 2)) . ' / ' . __('High') . ' ' . ($reading['high'] === null ? __('n/a') : number_format($reading['high'], 2));
+                    $changes[] = $dir . ' ' . ($reading['trend']['available'] ? sprintf('%+.2f dB', $reading['trend']['delta']) : ($reading['trend']['reason'] ?? __('Unavailable')));
+                }
+                return [
+                    'title' => e($r['sensor']->device?->displayName() ?? __('Unknown device')),
+                    'subtitle' => ($r['port']?->ifName ?: $r['sensor']->sensor_descr) . ($r['lane'] === null ? '' : ' | ' . __('Lane') . ' ' . $r['lane']),
+                    'value' => implode(' / ', $levels),
+                    'status' => $r['status'],
+                    'observed_at' => $r['observed_at'],
+                'age_label' => 'Device polled',
+                    'meta' => array_values(array_filter([
+                        $cols['margin'] ? [__('Margin'), implode(' / ', $margins)] : null,
+                        $cols['thresholds'] ? [__('Thresholds'), implode(' | ', $limits)] : null,
+                        $cols['optic'] && $r['transceiver'] ? [__('Optic'), trim($r['transceiver']->vendor . ' ' . $r['transceiver']->model)] : null,
+                        [__('24 h change'), implode(' / ', $changes)],
+                    ])),
+                    'href' => $r['port'] ? \LibreNMS\Util\Url::portUrl($r['port']) : null,
+                ];
+            })->all();
         @endphp
-
-        @include('widgets.partials.nmsdw-records', [
-            'records' => $records,
-            'layout' => $layout,
-            'card_min_width' => $card_min_width,
-        ])
+        @include('widgets.partials.nmsdw-records', ['records' => $records, 'layout' => $layout, 'card_min_width' => $card_min_width])
     @else
         <table class="nmsdw-table">
-            <thead>
-                <tr>
-                    <th>{{ __('Device') }}</th>
-                    <th>{{ __('Interface') }}</th>
-                    <th class="nmsdw-nowrap">{{ __('Level') }}</th>
-                    @if($cols['margin'])
-                        <th class="nmsdw-nowrap">{{ __('Margin') }}</th>
-                    @endif
-                    @if($cols['thresholds'])
-                        <th class="nmsdw-hide-narrow nmsdw-nowrap">{{ __('Thresholds') }}</th>
-                    @endif
-                    @if($cols['optic'])
-                        <th class="nmsdw-hide-narrow">{{ __('Optic') }}</th>
-                    @endif
-                </tr>
-            </thead>
+            <thead><tr><th>{{ __('Device / interface') }}</th><th>{{ __('RX / TX') }}</th>
+                @if($cols['margin'])<th>{{ __('Margin') }}</th>@endif
+                @if($cols['thresholds'])<th>{{ __('Thresholds') }}</th>@endif
+                @if($cols['optic'])<th>{{ __('Optic') }}</th>@endif
+            </tr></thead>
             <tbody>
-                @foreach($rows as $row)
-                    @php($sensor = $row['sensor'])
-                    <tr>
-                        <td class="nmsdw-strong">
-                            @include('widgets.partials.nmsdw-device-cell', ['linkDevice' => $sensor->device])
-                        </td>
-                        <td>
-                            @if($row['port'])
-                                <x-port-link :port="$row['port']" />
-                            @endif
-                            <span class="nmsdw-sec">{{ $sensor->sensor_descr }}</span>
-                        </td>
-                        <td class="nmsdw-nowrap">
-                            <span class="nmsdw-strong">{{ number_format($row['current'], 2) }} dBm</span>
-                            @if($row['direction'])
-                                <span class="nmsdw-sec">{{ strtoupper($row['direction']) }}</span>
-                            @endif
-                        </td>
-                        @if($cols['margin'])
-                            <td class="nmsdw-nowrap">
-                                @include('widgets.partials.nmsdw-pill', [
-                                    'status' => $row['status'],
-                                    'label' => $row['margin'] === null ? __('n/a') : number_format($row['margin'], 2) . ' dB',
-                                ])
-                            </td>
-                        @endif
-                        @if($cols['thresholds'])
-                            <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
-                                @if($row['low'] !== null)
-                                    <div>
-                                        {{ __('Low') }}: {{ number_format($row['low'], 2) }}
-                                        @if($row['custom']['low'])
-                                            <span class="nmsdw-custom" title="{{ __('Set in the widget settings') }}">{{ __('custom') }}</span>
-                                        @endif
-                                    </div>
-                                @endif
-                                @if($row['high'] !== null)
-                                    <div>
-                                        {{ __('High') }}: {{ number_format($row['high'], 2) }}
-                                        @if($row['custom']['high'])
-                                            <span class="nmsdw-custom" title="{{ __('Set in the widget settings') }}">{{ __('custom') }}</span>
-                                        @endif
-                                    </div>
-                                @endif
-                                @if($row['low'] === null && $row['high'] === null)
-                                    <div>{{ __('none reported') }}</div>
-                                @endif
-                            </td>
-                        @endif
-                        @if($cols['optic'])
-                            <td class="nmsdw-hide-narrow nmsdw-muted">
-                                @if($row['transceiver'])
-                                    <div>{{ $row['transceiver']->vendor }} {{ $row['transceiver']->model }}</div>
-                                    <div class="nmsdw-sec">
-                                        @if($row['transceiver']->wavelength){{ $row['transceiver']->wavelength }}nm @endif
-                                        @if($row['transceiver']->distance){{ $row['transceiver']->distance }}m @endif
-                                    </div>
-                                @endif
-                            </td>
-                        @endif
-                    </tr>
-                @endforeach
+            @foreach($rows as $row)
+                <tr>
+                    <td>
+                        @include('widgets.partials.nmsdw-device-cell', ['linkDevice' => $row['sensor']->device])
+                        @if($row['port'])<div><x-port-link :port="$row['port']" /></div>@endif
+                        @if($row['lane'] !== null)<span class="nmsdw-sec">{{ __('Lane') }} {{ $row['lane'] }}</span>@endif
+                        @include('widgets.partials.nmsdw-data-age', ['age_label' => 'Device polled', 'timestamp' => $row['observed_at']])
+                    </td>
+                    <td>@foreach($row['readings'] as $reading)
+                        <div><a href="{{ \LibreNMS\Util\Url::graphPageUrl('sensor_dbm', ['id' => $reading['sensor']->sensor_id]) }}" title="{{ $reading['sensor']->sensor_descr }}">{{ strtoupper($reading['direction'] ?? '?') }} {{ number_format($reading['current'], 2) }} dBm</a></div>
+                    @endforeach</td>
+                    @if($cols['margin'])<td>@foreach($row['readings'] as $reading)
+                        <div>@include('widgets.partials.nmsdw-pill', ['status' => $reading['status'], 'label' => strtoupper($reading['direction'] ?? '?') . ' ' . ($reading['margin'] === null ? __('n/a') : number_format($reading['margin'], 2) . ' dB')])</div>
+                    @endforeach</td>@endif
+                    @if($cols['thresholds'])<td>@foreach($row['readings'] as $reading)
+                        <div>{{ strtoupper($reading['direction'] ?? '?') }} {{ __('Low') }} {{ $reading['low'] === null ? __('n/a') : number_format($reading['low'], 2) }} / {{ __('High') }} {{ $reading['high'] === null ? __('n/a') : number_format($reading['high'], 2) }}
+                            @if($reading['custom']['low'] || $reading['custom']['high']) ({{ __('custom') }}) @endif
+                        </div>
+                    @endforeach</td>@endif
+                    @if($cols['optic'])<td>@if($row['transceiver']){{ $row['transceiver']->vendor }} {{ $row['transceiver']->model }}<span class="nmsdw-sec">{{ $row['transceiver']->wavelength }} nm &middot; {{ $row['transceiver']->distance }} m</span>@endif</td>@endif
+                </tr>
+            @endforeach
             </tbody>
         </table>
     @endif
-
-        @if($skipped_no_limit > 0 || $skipped_direction > 0 || $skipped_regex > 0)
-            <div class="nmsdw-note">
-                @if($skipped_no_limit > 0)
-                    {{ __(':count readings hidden because they have no low threshold. Set one in the widget settings to include them.', ['count' => $skipped_no_limit]) }}
-                @endif
-                @if($skipped_direction > 0)
-                    {{ __(':count hidden by the receive/transmit filter.', ['count' => $skipped_direction]) }}
-                @endif
-                @if($skipped_regex > 0)
-                    {{ __(':count hidden by the regex filters.', ['count' => $skipped_regex]) }}
-                @endif
-            </div>
-        @endif
-    @endif
+    @foreach($rows as $row)
+        <details class="nmsdw-note">
+            <summary>{{ $row['sensor']->device?->displayName() }} &middot; {{ $row['port']?->ifName ?: $row['sensor']->sensor_descr }} @if($row['lane'] !== null) &middot; {{ __('Lane') }} {{ $row['lane'] }} @endif &middot; {{ __('Optical history and graphs') }}</summary>
+            @foreach($row['readings'] as $reading)
+                <div>
+                    <a href="{{ \LibreNMS\Util\Url::graphPageUrl('sensor_dbm', ['id' => $reading['sensor']->sensor_id]) }}">{{ $reading['sensor']->sensor_descr }}</a>
+                    &middot; {{ __('24 h change') }}: {{ $reading['trend']['available'] ? sprintf('%+.2f dB', $reading['trend']['delta']) : ($reading['trend']['reason'] ?? __('Unavailable')) }}
+                    @if($reading['trend']['available'] && $reading['trend']['delta'] < 0) &middot; {{ __('Falling optical power') }} @endif
+                    @include('widgets.partials.nmsdw-data-age', ['age_label' => 'Device polled', 'timestamp' => $reading['observed_at']])
+                </div>
+            @endforeach
+        </details>
+    @endforeach
+    @include('widgets.partials.nmsdw-result-count', ['shown' => $displayed_readings, 'matched' => $matched_count, 'noun' => __('readings')])
+    <div class="nmsdw-note">{{ __(':count interface/lane rows shown. Ambiguous RX/TX lanes remain separate.', ['count' => count($rows)]) }}</div>
 </div>

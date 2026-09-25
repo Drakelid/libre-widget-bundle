@@ -154,7 +154,7 @@ final class SafeRegex
 
         // Logged once per instance, not once per row. Guarded so the class stays
         // usable (and testable) outside a booted Laravel application.
-        if (class_exists(Log::class)) {
+        if (class_exists(Log::class) && Log::getFacadeRoot() !== null) {
             Log::warning('nmsdashwidgets: regex abandoned mid-scan', [
                 'pattern' => $this->raw,
                 'preg_error' => preg_last_error_msg(),

@@ -93,15 +93,15 @@ foreach ($classes as $class) {
         var_export($class, true)
     );
 
-    $command = sprintf(
-        '%s -d display_errors=1 -d error_reporting=-1 -r %s 2>&1',
-        escapeshellarg(PHP_BINARY),
-        escapeshellarg($script)
-    );
-
-    $output = [];
-    $status = 0;
-    exec($command, $output, $status);
+    $process = proc_open([PHP_BINARY, '-d', 'display_errors=1', '-d', 'error_reporting=-1', '-r', $script],
+        [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['redirect', 1]], $pipes);
+    if (! is_resource($process)) {
+        throw new RuntimeException('Unable to start class-load check');
+    }
+    fclose($pipes[0]);
+    $output = explode("\n", stream_get_contents($pipes[1]));
+    fclose($pipes[1]);
+    $status = proc_close($process);
 
     if ($status === 0) {
         printf("  [ ok ] %s\n", $class);

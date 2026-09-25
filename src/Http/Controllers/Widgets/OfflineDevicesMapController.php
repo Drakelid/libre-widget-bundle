@@ -3,11 +3,15 @@
 namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 
 use App\Facades\LibrenmsConfig;
+use App\Models\Device;
+use App\Models\UserWidget;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
 use Drakelid\NmsDashWidgets\Support\MapLayers;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use LibreNMS\Util\Url;
 use Illuminate\View\View;
 
 /**
@@ -19,9 +23,8 @@ use Illuminate\View\View;
  * single scalar -- `(int) $device_group` in the blade, and `where('device_group_id',
  * $group_id)` in the map data endpoint. There is no way to show two groups at once.
  *
- * This widget reuses core's own data endpoint (maps.getdevices) and its Leaflet stack,
- * calling the endpoint once per selected group and merging the results. The response is
- * keyed by device_id, so a device in two selected groups appears once.
+ * This widget reuses core's Leaflet stack and returns one access-filtered snapshot
+ * for both markers and the outage list, including devices without coordinates.
  *
  * It also defaults to showing DOWN devices only, which is the usual reason to put a map
  * on a NOC dashboard.
@@ -117,5 +120,46 @@ class OfflineDevicesMapController extends BundleWidgetController
         $settings['map_engine'] = MapLayers::engine();
 
         return view('widgets.settings.offline-devices-map', $settings);
+    }
+
+    /** A complete permission-filtered snapshot keeps the map and outage list in sync. */
+    public function data(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', Device::class);
+        $request->validate(['id' => 'required|integer|min:1']);
+        $widget = UserWidget::findOrFail((int) $request->input('id'));
+        abort_unless($widget->widget === $this->name, 404);
+        abort_unless($widget->dashboard && $request->user()->can('view', $widget->dashboard), 403);
+        $settings = $this->settings();
+        $groupIds = DeviceGroups::accessibleIds($request->user(), $settings['device_groups']);
+        $query = Device::hasAccess($request->user())->with('location')->where('disabled', 0)
+            ->whereIn('status', array_map('intval', explode(',', $settings['status'])));
+        if ($settings['device_groups'] && ! $groupIds) {
+            $query->whereRaw('1 = 0');
+        }
+        DeviceGroups::scopeToDevices($query, $groupIds);
+        if (! LibrenmsConfig::get('network_map_worldmap_show_disabled_alerts')) {
+            $query->where('disable_notify', 0);
+        }
+        $types = collect(LibrenmsConfig::get('device_types', []))->pluck('icon', 'type');
+        $devices = $query->orderBy('device_id')->get()->mapWithKeys(function ($device) use ($types) {
+            $lat = $device->location?->lat;
+            $lng = $device->location?->lng;
+            $valid = is_numeric($lat) && is_numeric($lng) && abs((float) $lat) <= 90 && abs((float) $lng) <= 180;
+            return [$device->device_id => [
+                'id' => (int) $device->device_id,
+                'sname' => $device->displayName(),
+                'url' => Url::deviceUrl($device),
+                'typeIcon' => $types->get($device->type, 'server'),
+                'status' => (bool) $device->status,
+                'maintenance' => $device->isUnderMaintenance() ? 1 : 0,
+                'lat' => $valid ? (float) $lat : null,
+                'lng' => $valid ? (float) $lng : null,
+                'site' => $device->location?->location ?: __('Unknown location'),
+                'last_polled' => $device->last_polled?->toIso8601String(),
+                'outage_seconds' => ! $device->status && $device->last_polled ? max(0, (int) $device->last_polled->diffInSeconds(now(), true)) : null,
+            ]];
+        });
+        return response()->json(['devices' => (object) $devices->all(), 'observed_at' => now()->toIso8601String()]);
     }
 }

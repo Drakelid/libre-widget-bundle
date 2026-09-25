@@ -2,6 +2,24 @@
 
 @section('form')
     <div class="form-group">
+        <label>{{ __('Rank by') }}</label>
+        <select class="form-control" name="sort_by">
+            @foreach(['combined' => __('Combined throughput'), 'rx' => __('RX throughput'), 'tx' => __('TX throughput'), 'utilisation' => __('Peak directional utilisation')] as $key => $label)
+                <option value="{{ $key }}" @selected($sort_by === $key)>{{ $label }}</option>
+            @endforeach
+        </select>
+        <span class="help-block">{{ __('Utilisation uses the busier direction, not RX plus TX, on full-duplex links.') }}</span>
+    </div>
+    <div class="form-group">
+        <label>{{ __('Interface scope') }}</label>
+        <select class="form-control" name="interface_scope">
+            @foreach(['all' => __('All types'), 'physical' => __('Physical Ethernet'), 'aggregate' => __('Link aggregates')] as $key => $label)
+                <option value="{{ $key }}" @selected($interface_scope === $key)>{{ $label }}</option>
+            @endforeach
+        </select>
+        <span class="help-block">{{ __('Physical Ethernet matches ethernetCsmacd/iso88023Csmacd. Aggregates match ieee8023adLag. Selecting all may include both an aggregate and its members.') }}</span>
+    </div>
+    <div class="form-group">
         <label for="title-{{ $id }}" class="control-label">{{ __('Widget title') }}</label>
         <input type="text" class="form-control" name="title" id="title-{{ $id }}"
                placeholder="{{ __('Top Bandwidth Usage by Device Group') }}" value="{{ $title }}">

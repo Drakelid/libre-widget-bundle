@@ -21,6 +21,9 @@ namespace App\Models {
             public float $sensor_current,
             public ?object $translation = null,
             public string $sensor_descr = 'Test sensor',
+            public ?int $sensor_id = null,
+            public ?object $device = null,
+            public ?string $lastupdate = null,
         ) {
         }
 
@@ -32,8 +35,26 @@ namespace App\Models {
 
     class PollerCluster
     {
-        public function __construct(public mixed $last_report, public ?int $poller_frequency = null)
+        public static function query(): never
         {
+            throw new \RuntimeException('Inventory unavailable');
+        }
+
+        public string $poller_name = 'Test poller';
+        public string $node_id = 'test';
+        public string $poller_version = 'test';
+
+        public function __construct(public mixed $last_report, public ?int $poller_frequency = null, public array $settings = [])
+        {
+        }
+
+        public function getSettingValue(string $name): mixed
+        {
+            return $this->settings[$name] ?? match ($name) {
+                'poller_groups' => [0],
+                'poller_enabled' => true,
+                'poller_frequency' => $this->poller_frequency ?? \App\Facades\LibrenmsConfig::$frequency,
+            };
         }
     }
 }
@@ -107,6 +128,19 @@ namespace {
     $check('critical battery wins over unknown', 'critical', $summarize([$state(3), new Sensor('runtime', 5)]));
     $check('warning battery wins over invalid data', 'warning', $summarize([new Sensor('runtime', -1), new Sensor('charge', 40)]));
 
+    $site = [
+        'runtime_minutes' => null, 'charge_percent' => null, 'voltage' => null, 'voltage_max' => null,
+        'load_watts' => null, 'states' => [], 'suspect' => 0, 'unknown_state' => false,
+    ];
+    $high = new Sensor('voltage', 60, sensor_descr: 'Rectifier B', sensor_id: 2, device: (object) ['device_id' => 20, 'last_polled' => '2026-09-25 11:59:00'], lastupdate: '2025-01-01 00:00:00');
+    $low = new Sensor('voltage', 48, sensor_descr: 'Rectifier A', sensor_id: 1, device: (object) ['device_id' => 10, 'last_polled' => '2026-09-25 11:55:00'], lastupdate: '2025-01-01 00:00:00');
+    $apply->invokeArgs($power, [&$site, $high, $settings]);
+    $apply->invokeArgs($power, [&$site, $low, $settings]);
+    $check('maximum voltage retains offending sensor', 2, $site['sources']['voltage_max']['sensor_id']);
+    $check('minimum voltage retains its own sensor', 1, $site['sources']['voltage']['sensor_id']);
+    $check('alarm source includes offending device', 20, $site['sources']['voltage_max']['device']->device_id);
+    $check('site age uses oldest included device poll, not last value change', '2026-09-25 11:55:00', $site['observed_at']);
+
     Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', 'UTC'));
     try {
         $poller = new PollerHealthController;
@@ -118,6 +152,13 @@ namespace {
         $check('inherited fast frequency detects stale poller', false, $active->invoke($poller, new PollerCluster(Carbon::now()->subSeconds(121))));
         $check('explicit node frequency overrides global', true, $active->invoke($poller, new PollerCluster(Carbon::now()->subSeconds(700), 900)));
         $check('never-reported poller is stale', false, $active->invoke($poller, new PollerCluster(null)));
+        $summary = new ReflectionMethod($poller, 'pollerSummary');
+        $disabled = $summary->invoke($poller, new PollerCluster(null, settings: ['poller_enabled' => false, 'poller_groups' => '2,5']));
+        $check('disabled poller remains explicitly disabled', false, $disabled['enabled']);
+        $check('node poller group IDs are normalized', [2, 5], $disabled['groups']);
+        $check('summary exposes effective inherited interval', 60, $disabled['interval']);
+        $inventory = new ReflectionMethod($poller, 'pollers');
+        $check('failed inventory is distinct from an empty node list', null, $inventory->invoke($poller));
     } finally {
         Carbon::setTestNow();
     }

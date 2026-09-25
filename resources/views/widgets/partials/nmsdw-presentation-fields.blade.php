@@ -9,6 +9,7 @@
     Defaults reproduce each widget's original look, so these controls never change an
     existing placement until someone touches them.
 --}}
+@include('widgets.partials.nmsdw-regex-preview')
 @php
     $layoutLabels = [
         'table' => __('Table — dense columns'),

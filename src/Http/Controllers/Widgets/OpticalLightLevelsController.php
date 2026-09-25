@@ -11,6 +11,8 @@ use Drakelid\NmsDashWidgets\Support\Columns;
 use Drakelid\NmsDashWidgets\Support\Presentation;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
 use Drakelid\NmsDashWidgets\Support\Optical;
+use Drakelid\NmsDashWidgets\Support\SensorInsights;
+use Drakelid\NmsDashWidgets\Support\History;
 use Drakelid\NmsDashWidgets\Support\SafeRegex;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -42,6 +44,8 @@ class OpticalLightLevelsController extends BundleWidgetController
         'device_groups' => [],
         'sensor_count' => 20,
         'mode' => 'worst_margin',
+        'pair_directions' => true,
+        'show_history' => true,
         'warn_margin_db' => 3,
         'include_regex' => '',
         'exclude_regex' => '',
@@ -78,6 +82,8 @@ class OpticalLightLevelsController extends BundleWidgetController
 
     protected function normalizeSettings(array $settings): array
     {
+        $settings['pair_directions'] = Cast::bool($settings['pair_directions'] ?? true, true);
+        $settings['show_history'] = Cast::bool($settings['show_history'] ?? true, true);
         $settings['title'] = Cast::nullableString($settings['title'] ?? null);
         $settings['device_groups'] = DeviceGroups::ids($settings['device_groups'] ?? []);
         $settings['sensor_count'] = Cast::clampedInt($settings['sensor_count'] ?? 20, 1, 200, 20);
@@ -130,43 +136,13 @@ class OpticalLightLevelsController extends BundleWidgetController
             ->whereHas('device', function ($query): void {
                 $query->where('status', 1)->where('disabled', 0);
             })
-            // Filter before ranking/limiting: stale readings from inactive links
-            // must not crowd active links out of the widget.
-            ->whereExists(function ($ports): void {
-                $ports->selectRaw('1')
-                    ->from('ports')
-                    ->whereColumn('ports.device_id', 'sensors.device_id')
-                    ->where('ports.deleted', 0)
-                    ->where('ports.disabled', 0)
-                    ->where('ports.ifAdminStatus', 'up')
-                    ->where('ports.ifOperStatus', 'up')
-                    ->where('sensors.entPhysicalIndex', '<>', '')
-                    ->where(function ($mapping): void {
-                        // Some discovery modules store an ifIndex directly.
-                        $mapping->where(function ($direct): void {
-                            $direct->whereIn('sensors.entPhysicalIndex_measured', ['port', 'ports'])
-                                ->whereColumn('ports.ifIndex', 'sensors.entPhysicalIndex');
-                        })->orWhere(function ($entity): void {
-                            // Otherwise use the same entity mapping as attachPorts().
-                            // Do not interpret a known ifIndex as an entity index.
-                            $entity->where(function ($type): void {
-                                $type->whereNull('sensors.entPhysicalIndex_measured')
-                                    ->orWhereNotIn('sensors.entPhysicalIndex_measured', ['port', 'ports']);
-                            })->whereExists(function ($transceivers): void {
-                                $transceivers->selectRaw('1')
-                                    ->from('transceivers')
-                                    ->whereColumn('transceivers.device_id', 'sensors.device_id')
-                                    ->whereColumn('transceivers.port_id', 'ports.port_id')
-                                    ->whereNotNull('transceivers.entity_physical_index')
-                                    ->whereColumn('transceivers.entity_physical_index', 'sensors.entPhysicalIndex');
-                            });
-                        });
-                    });
-            })
             ->with('device')
             ->select('sensors.*');
 
         DeviceGroups::scopeToDevices($query, $groupIds, 'sensors.device_id');
+        $skippedUnmapped = (clone $query)->whereNotExists($this->portMapping(false))->count();
+        $skippedInactive = (clone $query)->whereExists($this->portMapping(false))->whereNotExists($this->portMapping(true))->count();
+        $query->whereExists($this->portMapping(true));
 
         $rows = [];
         $skippedNoLimit = 0;
@@ -174,87 +150,81 @@ class OpticalLightLevelsController extends BundleWidgetController
         $skippedRegex = 0;
         $totalSeen = 0;
         $keep = $settings['sensor_count'];
-        $highWater = max($keep * 4, 200);
+        $seedKeep = $settings['pair_directions'] && in_array($settings['mode'], ['all', 'worst_margin'], true) ? $keep * 2 : $keep;
+        $highWater = max($seedKeep * 4, 200);
 
         $query->chunkById(self::CHUNK_SIZE, function ($sensors) use (
             &$rows, &$skippedNoLimit, &$skippedDirection, &$skippedRegex, &$totalSeen,
-            $settings, $include, $exclude, $keep, $highWater, $custom
+            $settings, $include, $exclude, $seedKeep, $highWater, $custom
         ): void {
             foreach ($sensors as $sensor) {
                 $totalSeen++;
-                $direction = Optical::direction(
-                    (string) ($sensor->sensor_descr ?? ''),
-                    (string) ($sensor->sensor_type ?? '')
-                );
-
-                if ($settings['mode'] === 'rx_only' && $direction !== 'rx') {
-                    $skippedDirection++;
+                $row = $this->reading($sensor, $settings, $include, $exclude, $custom);
+                if (isset($row['skip'])) {
+                    match ($row['skip']) {
+                        'direction' => $skippedDirection++,
+                        'regex' => $skippedRegex++,
+                        'limit' => $skippedNoLimit++,
+                    };
                     continue;
                 }
-
-                if ($settings['mode'] === 'tx_only' && $direction !== 'tx') {
-                    $skippedDirection++;
-                    continue;
-                }
-
-                $haystack = $this->haystack($sensor);
-
-                if ($include->isUsable() && ! $include->matches($haystack)) {
-                    $skippedRegex++;
-                    continue;
-                }
-
-                if ($exclude->isUsable() && $exclude->matches($haystack)) {
-                    $skippedRegex++;
-                    continue;
-                }
-
-                // The optic's own limits merged with any set in the widget. Readings whose
-                // direction is unknown take the receive values: falling receive power is
-                // what this widget exists to catch.
-                [$limits, $fromCustom] = Optical::mergeLimits(
-                    [
-                        'low' => $this->limit($sensor->sensor_limit_low),
-                        'low_warn' => $this->limit($sensor->sensor_limit_low_warn),
-                        'high_warn' => $this->limit($sensor->sensor_limit_warn),
-                        'high' => $this->limit($sensor->sensor_limit),
-                    ],
-                    $custom[$direction === 'tx' ? 'tx' : 'rx'],
-                    $settings['threshold_priority']
-                );
-                $low = $limits['low'];
-
-                if ($low === null && $settings['only_with_limits']) {
-                    $skippedNoLimit++;
-                    continue;
-                }
-
-                $current = (float) $sensor->sensor_current;
-                // Margin is headroom above the low threshold: smaller means closer to dark.
-                $margin = $low === null ? null : $current - $low;
-
-                $rows[] = [
-                    'sensor' => $sensor,
-                    'direction' => $direction,
-                    'current' => $current,
-                    'low' => $low,
-                    'high' => $limits['high'],
-                    'custom' => $fromCustom,
-                    'margin' => $margin,
-                    'status' => Optical::status($current, $limits, $settings['warn_margin_db']),
-                ];
+                $rows[] = $row;
 
                 if (count($rows) >= $highWater) {
-                    $rows = $this->trim($rows, $keep, $settings['mode']);
+                    $rows = $this->trim($rows, $seedKeep, $settings['mode']);
                 }
             }
         }, 'sensors.sensor_id', 'sensor_id');
 
-        $rows = $this->trim($rows, $keep, $settings['mode']);
+        $rows = $this->trim($rows, $seedKeep, $settings['mode']);
         // Driven by the visible column, not by the legacy show_transceiver_details flag:
         // Columns seeds itself from that flag, but once a user sets columns explicitly the
         // two can disagree, and then the Optic column renders empty cells.
         $rows = $this->attachPorts($rows, (bool) $settings['cols']['optic']);
+        if ($settings['pair_directions'] && in_array($settings['mode'], ['all', 'worst_margin'], true) && $rows !== []) {
+            $selectedKeys = [];
+            $portIds = [];
+            foreach ($rows as $row) {
+                if ($row['port']) {
+                    $portIds[] = (int) $row['port']->port_id;
+                    $selectedKeys[$row['port']->port_id . ':' . (SensorInsights::lane($row['sensor']->sensor_descr) ?? 'unlabelled')] = true;
+                }
+            }
+            $companions = [];
+            if ($portIds !== []) {
+                (clone $query)->whereExists($this->portMapping(true, array_values(array_unique($portIds))))
+                    ->chunkById(self::CHUNK_SIZE, function ($sensors) use (&$companions, $settings, $include, $exclude, $custom, $selectedKeys): void {
+                        $candidates = [];
+                        foreach ($sensors as $sensor) {
+                            $reading = $this->reading($sensor, $settings, $include, $exclude, $custom);
+                            if (! isset($reading['skip'])) {
+                                $candidates[] = $reading;
+                            }
+                        }
+                        foreach ($this->attachPorts($candidates, (bool) $settings['cols']['optic']) as $candidate) {
+                            $key = $candidate['port']?->port_id . ':' . (SensorInsights::lane($candidate['sensor']->sensor_descr) ?? 'unlabelled');
+                            if (isset($selectedKeys[$key])) {
+                                $companions[$candidate['sensor']->sensor_id] = $candidate;
+                            }
+                        }
+                    }, 'sensors.sensor_id', 'sensor_id');
+            }
+            $ordered = $this->trim(array_values($companions), count($companions), $settings['mode']);
+            $rows = array_slice(SensorInsights::pairOptical($ordered), 0, $keep);
+        } else {
+            foreach ($rows as &$row) {
+                $row['readings'] = [$row];
+                $row['lane'] = SensorInsights::lane($row['sensor']->sensor_descr);
+            }
+            unset($row);
+        }
+        foreach ($rows as &$row) {
+            foreach ($row['readings'] as &$reading) {
+                $reading['trend'] = $settings['show_history'] ? History::sensorTrend($reading['sensor']) : ['available' => false, 'reason' => __('History disabled')];
+            }
+            unset($reading);
+        }
+        unset($row);
 
         return view('widgets.optical-light-levels', $settings + $this->shared($settings) + [
             'rows' => $rows,
@@ -263,11 +233,110 @@ class OpticalLightLevelsController extends BundleWidgetController
             'skipped_direction' => $skippedDirection,
             'skipped_regex' => $skippedRegex,
             'total_seen' => $totalSeen,
+            'matched_count' => $totalSeen - $skippedNoLimit - $skippedDirection - $skippedRegex,
+            'displayed_readings' => array_sum(array_map(fn (array $r): int => count($r['readings']), $rows)),
+            'skipped_unmapped' => $skippedUnmapped,
+            'skipped_inactive' => $skippedInactive,
             'regex_problems' => $this->regexProblems($include, $exclude),
             'ordering' => $settings['mode'] === 'all'
                 ? __('listed by device')
                 : __('ranked by margin above the low threshold'),
         ]);
+    }
+
+    private function portMapping(bool $active, array $portIds = []): \Closure
+    {
+        return function ($ports) use ($active, $portIds): void {
+            $ports->selectRaw('1')
+                ->from('ports')
+                ->whereColumn('ports.device_id', 'sensors.device_id')
+                ->when($active, fn ($q) => $q->where('ports.deleted', 0)->where('ports.disabled', 0)->where('ports.ifAdminStatus', 'up')->where('ports.ifOperStatus', 'up'))
+                ->when($portIds !== [], fn ($q) => $q->whereIntegerInRaw('ports.port_id', $portIds))
+                ->where('sensors.entPhysicalIndex', '<>', '')
+                ->where(function ($mapping): void {
+                    // Some discovery modules store an ifIndex directly.
+                    $mapping->where(function ($direct): void {
+                        $direct->whereIn('sensors.entPhysicalIndex_measured', ['port', 'ports'])
+                            ->whereColumn('ports.ifIndex', 'sensors.entPhysicalIndex');
+                    })->orWhere(function ($entity): void {
+                        // Otherwise use the same entity mapping as attachPorts().
+                        // Do not interpret a known ifIndex as an entity index.
+                        $entity->where(function ($type): void {
+                            $type->whereNull('sensors.entPhysicalIndex_measured')
+                                ->orWhereNotIn('sensors.entPhysicalIndex_measured', ['port', 'ports']);
+                        })->whereExists(function ($transceivers): void {
+                            $transceivers->selectRaw('1')
+                                ->from('transceivers')
+                                ->whereColumn('transceivers.device_id', 'sensors.device_id')
+                                ->whereColumn('transceivers.port_id', 'ports.port_id')
+                                ->whereNotNull('transceivers.entity_physical_index')
+                                ->whereColumn('transceivers.entity_physical_index', 'sensors.entPhysicalIndex');
+                        });
+                    });
+                });
+        };
+    }
+
+    private function reading(Sensor $sensor, array $settings, SafeRegex $include, SafeRegex $exclude, array $custom): array
+    {
+        $direction = Optical::direction(
+            (string) ($sensor->sensor_descr ?? ''),
+            (string) ($sensor->sensor_type ?? '')
+        );
+
+        if ($settings['mode'] === 'rx_only' && $direction !== 'rx') {
+            return ['skip' => 'direction'];
+        }
+
+        if ($settings['mode'] === 'tx_only' && $direction !== 'tx') {
+            return ['skip' => 'direction'];
+        }
+
+        $haystack = $this->haystack($sensor);
+
+        if ($include->isUsable() && ! $include->matches($haystack)) {
+            return ['skip' => 'regex'];
+        }
+
+        if ($exclude->isUsable() && $exclude->matches($haystack)) {
+            return ['skip' => 'regex'];
+        }
+
+        // The optic's own limits merged with any set in the widget. Readings whose
+        // direction is unknown take the receive values: falling receive power is
+        // what this widget exists to catch.
+        [$limits, $fromCustom] = Optical::mergeLimits(
+            [
+                'low' => $this->limit($sensor->sensor_limit_low),
+                'low_warn' => $this->limit($sensor->sensor_limit_low_warn),
+                'high_warn' => $this->limit($sensor->sensor_limit_warn),
+                'high' => $this->limit($sensor->sensor_limit),
+            ],
+            $custom[$direction === 'tx' ? 'tx' : 'rx'],
+            $settings['threshold_priority']
+        );
+        $low = $limits['low'];
+
+        if ($low === null && $settings['only_with_limits']) {
+            return ['skip' => 'limit'];
+        }
+
+        $current = (float) $sensor->sensor_current;
+        // Margin is headroom above the low threshold: smaller means closer to dark.
+        $margin = $low === null ? null : $current - $low;
+
+        return [
+            'sensor' => $sensor,
+            'observed_at' => SensorInsights::polledAt($sensor),
+            'direction' => $direction,
+            'current' => $current,
+            'low' => $low,
+            'high' => $limits['high'],
+            'custom' => $fromCustom,
+            'margin' => $margin,
+            'status' => Optical::status($current, $limits, $settings['warn_margin_db']),
+        ];
+
     }
 
     /**

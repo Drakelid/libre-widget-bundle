@@ -2,11 +2,8 @@
 {{--
     Device map filtered by any number of device groups.
 
-    Built on core's Leaflet stack and its maps.getdevices endpoint, so markers, clustering
-    and popups behave exactly as the built-in World Map. The difference is the group
-    filter: core's endpoint takes one group id, so this issues one request per selected
-    group and merges the responses. They are keyed by device_id, which makes a device
-    belonging to two selected groups appear once.
+    Core's Leaflet stack renders a complete accessible-device snapshot, including
+    devices without coordinates in the synchronized outage list.
 
     data-reload="false" keeps the dashboard from replacing this markup on refresh -- it
     sends a `refresh` event instead, which repopulates the markers without rebuilding the
@@ -25,30 +22,43 @@
 <script type="application/javascript">
     (function () {
         const map_id = 'nmsdw_map-{{ $widget_id }}';
-        const statuses = {{ Js::from($statuses) }};
-        const group_ids = {{ Js::from($group_ids) }};
-        const disabled_alerts = {{ Js::from($disabled_alerts) }};
+        const widget_id = {{ Js::from($widget_id) }};
         const map_config = {{ Js::from($map_config) }};
         const group_radius = {{ (int) $radius }};
         const fit_to_markers = {{ $fit_to_markers ? 'true' : 'false' }};
-        const endpoint = '{{ route('maps.getdevices') }}';
+        const endpoint = '{{ route('plugin.nmsdashwidgets.map-data') }}';
         let refreshGeneration = 0;
         let hasCompleteData = false;
         let requestWarning;
+        let outageList;
+        let fitButton;
+        let outageCoordinates = [];
 
-        function fetchGroup(groupId) {
+        function fetchSnapshot() {
             return $.ajax({
                 type: 'POST',
                 url: endpoint,
                 dataType: 'json',
-                data: {
-                    location_valid: 1,
-                    disabled: 0,
-                    disabled_alerts: disabled_alerts,
-                    statuses: statuses,
-                    group: groupId
-                }
+                timeout: 30000,
+                data: { id: widget_id }
             });
+        }
+
+        function deviceLink(device) {
+            var link = document.createElement('a');
+            link.textContent = device.sname;
+            try {
+                var url = new URL(device.url, window.location.href);
+                if (url.protocol === 'http:' || url.protocol === 'https:') link.href = url.href;
+            } catch (error) { /* Invalid URLs remain plain labels. */ }
+            return link;
+        }
+
+        function detailText(device) {
+            var age = device.last_polled ? Math.max(0, Math.floor((Date.now() - Date.parse(device.last_polled)) / 60000)) : null;
+            var poll = age === null || ! Number.isFinite(age) ? 'Last poll unknown' : 'Last poll ' + age + ' min ago' + (age > 15 ? ' (stale)' : '');
+            var outage = device.status ? 'Online' : (device.outage_seconds == null ? 'Outage duration unknown' : 'Estimated outage ' + Math.floor(device.outage_seconds / 60) + ' min (since last successful poll)');
+            return (device.site || 'Unknown location') + ' · ' + outage + ' · ' + poll + (device.maintenance ? ' · Maintenance' : '');
         }
 
         function buildMarker(device) {
@@ -70,24 +80,58 @@
             }
 
             var marker = L.marker(new L.LatLng(device.lat, device.lng), options);
-            var link = document.createElement('a');
-            link.textContent = device.sname;
-            // Device labels are plain text, and popup links must use a web URL.
-            try {
-                var url = new URL(device.url, window.location.href);
-                if (url.protocol === 'http:' || url.protocol === 'https:') {
-                    link.href = url.href;
-                }
-            } catch (error) {
-                // Keep the label visible if the endpoint returns an invalid URL.
-            }
-            marker.bindPopup(link);
+            var popup = document.createElement('div');
+            popup.appendChild(deviceLink(device));
+            var detail = document.createElement('div');
+            detail.textContent = detailText(device);
+            popup.appendChild(detail);
+            marker.bindPopup(popup);
 
             return marker;
         }
 
-        function render(devices) {
-            var markers = Object.values(devices).map(buildMarker);
+        function render(devices, observedAt) {
+            var all = Object.values(devices);
+            var hasCoordinates = device => Number.isFinite(device.lat) && Number.isFinite(device.lng);
+            var plotted = all.filter(hasCoordinates);
+            var markers = plotted.map(buildMarker);
+            var outages = all.filter(device => ! device.status).sort((a, b) => (b.outage_seconds || 0) - (a.outage_seconds || 0));
+            outageCoordinates = outages.filter(hasCoordinates).map(device => [device.lat, device.lng]);
+            fitButton.disabled = outageCoordinates.length === 0;
+            var list = document.createElement('div');
+            var count = document.createElement('div');
+            count.textContent = plotted.length + ' plotted / ' + all.length + ' matching devices; ' + (all.length - plotted.length) + ' without coordinates. ' + outages.length + ' outages. Snapshot: ' + (observedAt || 'unknown');
+            list.appendChild(count);
+            if (outages.length === 0) {
+                var empty = document.createElement('div');
+                empty.textContent = 'No offline devices match the selected filters.';
+                list.appendChild(empty);
+            }
+            outages.slice(0, 100).forEach(function (device) {
+                var row = document.createElement('div');
+                row.appendChild(deviceLink(device));
+                var detail = document.createElement('div');
+                detail.textContent = detailText(device) + (hasCoordinates(device) ? '' : ' · No coordinates');
+                row.appendChild(detail);
+                if (hasCoordinates(device)) {
+                    var locate = document.createElement('button');
+                    locate.type = 'button';
+                    locate.textContent = 'Show on map';
+                    locate.className = 'btn btn-default btn-xs';
+                    locate.addEventListener('click', function () {
+                        var marker = markers[plotted.indexOf(device)];
+                        map.markerCluster.zoomToShowLayer(marker, function () { marker.openPopup(); });
+                    });
+                    row.appendChild(locate);
+                }
+                list.appendChild(row);
+            });
+            if (outages.length > 100) {
+                var limited = document.createElement('div');
+                limited.textContent = 'Showing the 100 longest outages of ' + outages.length + '.';
+                list.appendChild(limited);
+            }
+            outageList.replaceChildren(list);
             var map = get_map(map_id);
             var isFirstLoad = ! map.markerCluster;
 
@@ -131,43 +175,23 @@
 
         function populate() {
             var generation = ++refreshGeneration;
-            // No groups selected means every accessible device; core uses 0 for that.
-            var wanted = group_ids.length ? group_ids : [0];
-            var merged = {};
-            var outstanding = wanted.length;
-            var failed = false;
-
-            wanted.forEach(function (groupId) {
-                fetchGroup(groupId)
-                    .done(function (data) {
-                        // Keyed by device_id, so overlapping groups collapse naturally.
-                        Object.assign(merged, data || {});
-                    })
-                    .fail(function (error) {
-                        // Keep the last complete snapshot if any group fails.
-                        if (! failed && generation === refreshGeneration) {
-                            failed = true;
-
-                            if (typeof toastr !== 'undefined') {
-                                toastr.error(error.statusText || 'Map data request failed');
-                            }
-                        }
-                    })
-                    .always(function () {
-                        if (--outstanding === 0 && generation === refreshGeneration) {
-                            if (failed) {
-                                requestWarning.textContent = hasCompleteData
-                                    ? 'Map refresh failed. Showing previous device data; it may be out of date.'
-                                    : 'Map data unavailable. Device status could not be loaded.';
-                                requestWarning.hidden = false;
-                            } else {
-                                render(merged);
-                                hasCompleteData = true;
-                                requestWarning.hidden = true;
-                            }
-                        }
-                    });
-            });
+            function failed() {
+                if (generation !== refreshGeneration) return;
+                requestWarning.textContent = hasCompleteData
+                    ? 'Map refresh failed. Showing previous device data; it may be out of date.'
+                    : 'Map data unavailable. Device status could not be loaded.';
+                requestWarning.hidden = false;
+            }
+            fetchSnapshot().done(function (data) {
+                if (generation !== refreshGeneration) return;
+                if (! data || ! data.devices || typeof data.devices !== 'object') {
+                    failed();
+                    return;
+                }
+                render(data.devices, data.observed_at);
+                hasCompleteData = true;
+                requestWarning.hidden = true;
+            }).fail(failed);
         }
 
         loadjs('js/leaflet.js', function () {
@@ -185,6 +209,36 @@
                             return requestWarning;
                         };
                         warningControl.addTo(get_map(map_id));
+                        var outageControl = L.control({ position: 'topright' });
+                        outageControl.onAdd = function () {
+                            var panel = document.createElement('div');
+                            panel.className = 'panel panel-default';
+                            panel.style.maxWidth = '300px';
+                            panel.style.padding = '6px';
+                            fitButton = document.createElement('button');
+                            fitButton.type = 'button';
+                            fitButton.className = 'btn btn-default btn-xs';
+                            fitButton.textContent = 'Fit current outages';
+                            fitButton.disabled = true;
+                            fitButton.addEventListener('click', function () {
+                                if (outageCoordinates.length) get_map(map_id).fitBounds(outageCoordinates, { padding: [30, 30], maxZoom: 12 });
+                            });
+                            panel.appendChild(fitButton);
+                            var details = document.createElement('details');
+                            var summary = document.createElement('summary');
+                            summary.textContent = 'Outage list and map coverage';
+                            details.appendChild(summary);
+                            outageList = document.createElement('div');
+                            outageList.style.maxHeight = '180px';
+                            outageList.style.overflowY = 'auto';
+                            outageList.textContent = 'Loading device status…';
+                            details.appendChild(outageList);
+                            panel.appendChild(details);
+                            L.DomEvent.disableClickPropagation(panel);
+                            L.DomEvent.disableScrollPropagation(panel);
+                            return panel;
+                        };
+                        outageControl.addTo(get_map(map_id));
                         populate();
 
                         $('#' + map_id)

@@ -45,6 +45,16 @@ $compiler = new \Illuminate\View\Compilers\BladeCompiler(
     $cache
 );
 
+// Resolve host anonymous components for syntax checking without booting LibreNMS.
+$container = \Illuminate\Container\Container::getInstance();
+$factory = new \Illuminate\View\Factory(new \Illuminate\View\Engines\EngineResolver(),
+    new \Illuminate\View\FileViewFinder(new \Illuminate\Filesystem\Filesystem(), [$viewDir]),
+    new \Illuminate\Events\Dispatcher($container));
+$container->instance(\Illuminate\Contracts\View\Factory::class, $factory);
+foreach (['device-link', 'port-link', 'graph'] as $component) {
+    $compiler->component(\Illuminate\View\AnonymousComponent::class, $component);
+}
+
 $templates = new RecursiveIteratorIterator(
     new RecursiveDirectoryIterator($viewDir, FilesystemIterator::SKIP_DOTS)
 );

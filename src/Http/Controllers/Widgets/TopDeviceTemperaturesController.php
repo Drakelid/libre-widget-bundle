@@ -10,6 +10,8 @@ use Drakelid\NmsDashWidgets\Support\DeviceGroups;
 use Drakelid\NmsDashWidgets\Support\Format;
 use Drakelid\NmsDashWidgets\Support\SafeRegex;
 use Drakelid\NmsDashWidgets\Support\Temperature;
+use Drakelid\NmsDashWidgets\Support\SensorInsights;
+use Drakelid\NmsDashWidgets\Support\History;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -41,6 +43,8 @@ class TopDeviceTemperaturesController extends BundleWidgetController
         'include_module_sensors' => false,
         'warn_temp' => 70,
         'limit_temp' => 90,
+        'ranking' => 'margin',
+        'show_history' => true,
         'sensor_include_regex' => '',
         'sensor_exclude_regex' => '',
 
@@ -56,6 +60,8 @@ class TopDeviceTemperaturesController extends BundleWidgetController
 
     protected function normalizeSettings(array $settings): array
     {
+        $settings['ranking'] = Cast::choice($settings['ranking'] ?? 'margin', ['margin', 'temperature'], 'margin');
+        $settings['show_history'] = Cast::bool($settings['show_history'] ?? true, true);
         $settings['title'] = Cast::nullableString($settings['title'] ?? null);
         $settings['device_count'] = Cast::clampedInt($settings['device_count'] ?? 10, 1, 100, 10);
         // 0 disables the last-polled filter entirely.
@@ -141,15 +147,18 @@ class TopDeviceTemperaturesController extends BundleWidgetController
 
         $excludedModuleCount = 0;
         $excludedRegexCount = 0;
+        $candidateCount = 0;
         $hottestPerDevice = [];
+        $deviceSensors = [];
 
-        // Streamed rather than loaded whole. Only one row per device is retained, so
-        // memory is bounded by device count regardless of how many sensors exist.
+        // Stream models in chunks; retain one ranked model per device and compact
+        // sensor summaries for the expandable device details.
         $query->chunkById(self::CHUNK_SIZE, function ($sensors) use (
-            &$excludedModuleCount, &$excludedRegexCount, &$hottestPerDevice,
+            &$excludedModuleCount, &$excludedRegexCount, &$candidateCount, &$hottestPerDevice, &$deviceSensors,
             $settings, $include, $exclude
         ): void {
             foreach ($sensors as $sensor) {
+                $candidateCount++;
                 if (! $settings['include_module_sensors'] && $this->looksLikeInterfaceModuleTemperature($sensor)) {
                     $excludedModuleCount++;
                     continue;
@@ -169,40 +178,56 @@ class TopDeviceTemperaturesController extends BundleWidgetController
 
                 $deviceId = (int) $sensor->device_id;
 
-                // One row per device: keep only that device's hottest sensor.
-                if (isset($hottestPerDevice[$deviceId]) && $hottestPerDevice[$deviceId]['current'] >= $current) {
-                    continue;
-                }
-
-                $hottestPerDevice[$deviceId] = [
+                $limits = SensorInsights::temperatureLimits($sensor, $settings['warn_temp'], $settings['limit_temp']);
+                $candidate = [
                     'sensor' => $sensor,
                     'current' => $current,
-                    'status' => Temperature::status($current, $settings['warn_temp'], $settings['limit_temp']),
+                    'margin' => $limits['limit'] - $current,
+                    'limits' => $limits,
+                    'status' => Temperature::status($current, $limits['warn'], $limits['limit']),
                     'current_text' => Format::temperature($current),
-                    'scaled' => abs($scale - 1.0) > 0.0001,
+                    'observed_at' => SensorInsights::polledAt($sensor),
                 ];
+                // Retain compact details, not every model, for expandable device context.
+                $deviceSensors[$deviceId][] = [
+                    'id' => $sensor->sensor_id, 'descr' => $sensor->sensor_descr,
+                    'current' => $current, 'margin' => $candidate['margin'],
+                    'status' => $candidate['status'], 'observed_at' => SensorInsights::polledAt($sensor),
+                ];
+                $previous = $hottestPerDevice[$deviceId] ?? null;
+                if ($previous === null || ($settings['ranking'] === 'margin'
+                    ? $candidate['margin'] < $previous['margin']
+                    : $current > $previous['current'])) {
+                    $hottestPerDevice[$deviceId] = $candidate;
+                }
             }
         }, 'sensors.sensor_id', 'sensor_id');
 
         $rows = collect($hottestPerDevice)
-            ->sortByDesc('current')
+            ->sortBy(fn (array $row): float => $settings['ranking'] === 'margin' ? $row['margin'] : -$row['current'])
             ->take($settings['device_count'])
             ->values();
 
         $maxShown = max(1.0, (float) ($rows->max('current') ?? 0));
 
-        $rows = $rows->map(function (array $row) use ($settings, $maxShown): array {
-            $row['percent'] = Temperature::barPercent($row['current'], $settings['limit_temp'], $maxShown);
+        $rows = $rows->map(function (array $row) use ($settings, $maxShown, $deviceSensors): array {
+            $row['percent'] = Temperature::barPercent($row['current'], $row['limits']['limit'], $maxShown);
             $row['caption'] = __('Limit: :limit · Warn: :warn', [
-                'limit' => Format::temperature($settings['limit_temp']),
-                'warn' => Format::temperature($settings['warn_temp']),
+                'limit' => Format::temperature($row['limits']['limit']),
+                'warn' => Format::temperature($row['limits']['warn']),
             ]);
+
+            $row['other_sensors'] = $deviceSensors[(int) $row['sensor']->device_id] ?? [];
+            $row['trend'] = $settings['show_history'] ? History::sensorTrend($row['sensor']) : ['available' => false, 'reason' => __('History disabled')];
+            $row['trend'] = SensorInsights::temperatureTrend($row['trend'], Temperature::sensorScaleFactor($row['sensor']));
 
             return $row;
         });
 
         return view('widgets.top-device-temperatures', $settings + $this->shared($settings) + [
             'rows' => $rows,
+            'matched_count' => count($hottestPerDevice),
+            'candidate_count' => $candidateCount,
             'excluded_module_count' => $excludedModuleCount,
             'excluded_regex_count' => $excludedRegexCount,
             'group_label' => DeviceGroups::namesFor($user, $groupIds, __('All device groups')),

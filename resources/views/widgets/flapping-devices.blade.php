@@ -26,6 +26,8 @@
             'label' => __('Last change'),
         ])
     </div>
+    @include('widgets.partials.nmsdw-result-count', ['shown' => $rows->count(), 'matched' => $summary['matched'], 'noun' => __('flapping items')])
+    <div class="nmsdw-note">{{ __('Summary covers every matching item in the selected time window.') }}</div>
 
     @if($rows->isEmpty())
         @include('widgets.partials.nmsdw-empty', [
@@ -46,10 +48,12 @@
                 'unit' => __('state changes'),
                 'status' => $r->severity,
                 'meta' => [
-                    [__('Now'), $r->state],
+                    [__('Current polled state'), $r->current_state],
+                    [__('Last event state'), $r->state],
                     [__('Last'), \Carbon\Carbon::parse($r->last_change)->diffForHumans(null, true)],
                 ],
-                'href' => null,
+                'href' => $r->item_url,
+                'observed_at' => $r->observed_at,
             ])->all();
         @endphp
 
@@ -79,11 +83,13 @@
             <tbody>
                 @foreach($rows as $row)
                     <tr>
-                        <td class="nmsdw-strong">{{ $row->device_name }}</td>
+                        <td class="nmsdw-strong"><a href="{{ $row->device_url }}">{{ $row->device_name }}</a>
+                            @include('widgets.partials.nmsdw-data-age', ['timestamp' => $row->observed_at])
+                        </td>
                         <td>
                             @if($row->item_type === 'port')
                                 <span class="nmsdw-sec">{{ __('Port') }}</span>
-                                {{ $row->port_name }}
+                                <a href="{{ $row->item_url }}">{{ $row->port_name }}</a>
                             @else
                                 <span class="nmsdw-sec">{{ __('Device') }}</span>
                             @endif
@@ -95,7 +101,7 @@
                             ])
                         </td>
                         @if($cols['state'])
-                            <td class="nmsdw-nowrap">{{ $row->state }}</td>
+                            <td class="nmsdw-nowrap">{{ $row->current_state }}<br><small>{{ __('Last event') }}: {{ $row->state }}</small></td>
                         @endif
                         @if($cols['last'])
                             <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap"
@@ -111,5 +117,19 @@
             </tbody>
         </table>
     @endif
+        <details>
+            <summary>{{ __('Recent transitions (up to 8 per displayed item)') }}</summary>
+            @foreach($rows as $row)
+                <div>
+                    <a href="{{ $row->item_url }}">{{ $row->device_name }} {{ $row->port_name }}</a>
+                    <a href="{{ $row->event_url }}">{{ __('Event log') }}</a>
+                    <ol>
+                        @foreach($row->timeline as $event)
+                            <li title="{{ $event->message }}">{{ $event->datetime }} &mdash; {{ $event->state }}</li>
+                        @endforeach
+                    </ol>
+                </div>
+            @endforeach
+        </details>
     @endif
 </div>

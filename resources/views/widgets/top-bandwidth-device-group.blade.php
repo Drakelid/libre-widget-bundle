@@ -6,6 +6,7 @@
         <div class="nmsdw-head">{{ $heading ?: __('Top :count bandwidth ports', ['count' => $top_count]) }}</div>
         <div class="nmsdw-sub">
             {{ $group_label }} &middot; {{ __('polled within :count minutes', ['count' => $time_interval]) }}
+            &middot; {{ $sort_label }}
         </div>
     @endif
 
@@ -24,14 +25,18 @@
             $records = collect($rows)->map(fn ($r) => [
                 'title' => e($r['port']->device?->displayName() ?? __('Unknown device')),
                 'subtitle' => $r['port']->ifName ?: $r['port']->ifDescr,
-                'value' => $r['total_label'],
-                'unit' => __('total throughput'),
+                'value' => $r['rank_label'],
+                'unit' => $sort_label,
+                'observed_at' => $r['observed_at'],
+                'graph' => $cols['graph'] ? view('widgets.partials.nmsdw-network-graph', ['port' => $r['port']])->render() : null,
                 'status' => 'info',
                 'bar' => $r['bar_percent'],
                 'meta' => array_values(array_filter([
-                    [__('In'), $r['in_label']],
-                    [__('Out'), $r['out_label']],
+                    $cols['inout'] ? [__('RX'), $r['in_label']] : null,
+                    $cols['inout'] ? [__('TX'), $r['out_label']] : null,
                     $cols['utilisation'] ? [__('Util'), $r['utilisation_label']] : null,
+                    $cols['utilisation'] ? [__('RX / TX utilisation'), $r['rx_utilisation'] . ' / ' . $r['tx_utilisation']] : null,
+                    $cols['group'] ? [__('Group'), $r['group_names']] : null,
                 ])),
                 'href' => \LibreNMS\Util\Url::portUrl($r['port']),
             ])->all();
@@ -48,7 +53,7 @@
                 <tr>
                     <th>{{ __('Device') }}</th>
                     <th>{{ __('Interface') }}</th>
-                    <th>{{ __('Usage') }}</th>
+                    <th>{{ $sort_label }}</th>
                     @if($cols['inout'])
                         <th class="nmsdw-hide-narrow">{{ __('In / Out') }}</th>
                     @endif
@@ -58,7 +63,7 @@
                     @if($cols['graph'])
                         <th class="nmsdw-hide-narrow">{{ __('Graph') }}</th>
                     @endif
-                    @if($cols['group'] && $has_group_filter)
+                    @if($cols['group'])
                         <th class="nmsdw-hide-narrow">{{ __('Group') }}</th>
                     @endif
                 </tr>
@@ -69,6 +74,7 @@
                     <tr>
                         <td class="nmsdw-strong">
                             @include('widgets.partials.nmsdw-device-cell', ['linkDevice' => $port->device])
+                            @include('widgets.partials.nmsdw-data-age', ['timestamp' => $row['observed_at']])
                         </td>
                         <td>
                             <x-port-link :port="$port">
@@ -79,16 +85,16 @@
                             @endif
                         </td>
                         <td class="nmsdw-nowrap">
-                            <span class="nmsdw-strong">{{ $row['total_label'] }}</span>
+                            <span class="nmsdw-strong">{{ $row['rank_label'] }}</span>
                             @include('widgets.partials.nmsdw-meter', [
                                 'percent' => $row['bar_percent'],
                                 'status' => 'info',
                             ])
                             {{-- On narrow widgets the In/Out column is hidden, so fold it in here. --}}
-                            <span class="nmsdw-sec nmsdw-show-narrow">
+                            @if($cols['inout'])<span class="nmsdw-sec nmsdw-show-narrow">
                                 {{ __('In') }}: {{ $row['in_label'] }} &middot;
                                 {{ __('Out') }}: {{ $row['out_label'] }}
-                            </span>
+                            </span>@endif
                         </td>
                         @if($cols['inout'])
                             <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
@@ -97,7 +103,9 @@
                             </td>
                         @endif
                         @if($cols['utilisation'])
-                            <td class="nmsdw-nowrap">{{ $row['utilisation_label'] }}</td>
+                            <td class="nmsdw-nowrap">{{ $row['utilisation_label'] }}
+                                <span class="nmsdw-sec">RX {{ $row['rx_utilisation'] }} / TX {{ $row['tx_utilisation'] }}</span>
+                            </td>
                         @endif
                         @if($cols['graph'])
                             <td class="nmsdw-hide-narrow nmsdw-graph">
@@ -109,7 +117,7 @@
                                 </x-port-link>
                             </td>
                         @endif
-                        @if($cols['group'] && $has_group_filter)
+                        @if($cols['group'])
                             <td class="nmsdw-hide-narrow nmsdw-muted">{{ $row['group_names'] }}</td>
                         @endif
                     </tr>
@@ -118,4 +126,5 @@
         </table>
     @endif
     @endif
+    @include('widgets.partials.nmsdw-result-count', ['shown' => count($rows), 'matched' => $matched_total, 'noun' => __('ports')])
 </div>

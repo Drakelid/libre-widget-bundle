@@ -5,6 +5,7 @@ namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 use App\Facades\LibrenmsConfig;
 use App\Models\Device;
 use App\Models\PollerCluster;
+use App\Models\PollerGroup;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
 use Drakelid\NmsDashWidgets\Support\Columns;
@@ -93,13 +94,33 @@ class PollerHealthController extends BundleWidgetController
             ->orderBy('last_polled');
 
         $staleCount = (clone $staleQuery)->count();
-        $devices = $staleQuery->limit($settings['limit'])->get();
+        $devices = (clone $staleQuery)->limit($settings['limit'])->get();
 
-        $rows = $devices->map(function (Device $device): array {
+        $mayViewPollers = $user->can('viewAny', PollerCluster::class);
+        $inventory = $mayViewPollers ? $this->pollers() : collect();
+        $pollers = $inventory ?? collect();
+        $groupNames = $user->can('viewAny', PollerGroup::class)
+            ? PollerGroup::query()->whereIn('id', $devices->pluck('poller_group')->unique())->pluck('group_name', 'id')
+            : collect();
+        $staleGroups = (clone $staleQuery)->reorder()->select('poller_group')->selectRaw('COUNT(*) AS total')->groupBy('poller_group')->pluck('total', 'poller_group');
+        $rows = $devices->map(function (Device $device) use ($pollers, $groupNames): array {
             $last = $device->last_polled;
 
+            $group = (int) $device->poller_group;
+            $assigned = $pollers->filter(fn (array $p): bool => in_array($group, $p['groups'], true) && $p['enabled']);
+            $intervals = $assigned->pluck('interval')->unique();
+            // Multiple pollers can serve one group. Keep an explicit range rather than inventing a single interval.
+            $intervalMin = (int) ($intervals->min() ?? LibrenmsConfig::get('service_poller_frequency', 300));
+            $intervalMax = (int) ($intervals->max() ?? $intervalMin);
             return [
                 'device' => $device,
+                'group_id' => $group,
+                'group_label' => $groupNames->get($group) ?? __('Poller group :id', ['id' => $group]),
+                'interval' => $intervalMin === $intervalMax ? (string) $intervalMin : $intervalMin . ' - ' . $intervalMax,
+                'duration' => is_numeric($device->last_polled_timetaken) ? (float) $device->last_polled_timetaken : null,
+                'overrun' => is_numeric($device->last_polled_timetaken) && (float) $device->last_polled_timetaken > $intervalMin,
+                'disabled' => (bool) $device->disabled,
+                'observed_at' => $last,
                 'last_polled' => $last,
                 'stale_for' => $last ? $last->diffForHumans(null, true) : null,
             ];
@@ -113,8 +134,10 @@ class PollerHealthController extends BundleWidgetController
                 'never_polled' => $neverPolled,
                 'fresh' => max(0, $total - $staleCount),
             ],
-            'pollers' => $settings['show_pollers'] && $user->can('viewAny', PollerCluster::class)
-                ? $this->pollers() : collect(),
+            'pollers' => $settings['show_pollers'] ? $pollers : collect(),
+            'poller_inventory_unavailable' => $mayViewPollers && $inventory === null,
+            'stale_groups' => $staleGroups,
+            'matched_count' => $staleCount,
             'cutoff' => $cutoff,
             'group_label' => DeviceGroups::namesFor($user, $groupIds, __('All accessible devices')),
         ]);
@@ -134,17 +157,26 @@ class PollerHealthController extends BundleWidgetController
             return PollerCluster::query()
                 ->orderBy('poller_name')
                 ->get()
-                ->map(fn (PollerCluster $p): array => [
-                    'name' => $p->poller_name,
-                    'node_id' => $p->node_id,
-                    'version' => $p->poller_version,
-                    'last_report' => $p->last_report,
-                    'enabled' => (bool) $p->poller_enabled,
-                    'active' => $this->pollerIsActive($p),
-                ]);
+                ->map(fn (PollerCluster $p): array => $this->pollerSummary($p));
         } catch (\Throwable) {
-            return collect();
+            return null;
         }
+    }
+
+    private function pollerSummary(PollerCluster $poller): array
+    {
+        $groups = $poller->getSettingValue('poller_groups');
+
+        return [
+            'name' => $poller->poller_name,
+            'node_id' => $poller->node_id,
+            'version' => $poller->poller_version,
+            'last_report' => $poller->last_report,
+            'enabled' => (bool) $poller->getSettingValue('poller_enabled'),
+            'interval' => max(1, (int) $poller->getSettingValue('poller_frequency')),
+            'groups' => array_map('intval', is_array($groups) ? $groups : explode(',', (string) $groups)),
+            'active' => $this->pollerIsActive($poller),
+        ];
     }
 
     private function pollerIsActive(PollerCluster $poller): bool

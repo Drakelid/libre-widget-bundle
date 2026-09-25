@@ -38,6 +38,7 @@ class CustomerPortStatusController extends BundleWidgetController
         'time_interval' => 15,
         'min_down_minutes' => 0,
         'show_admin_down' => false,
+        'group_by' => 'none',
 
         // Visible columns. null means "never configured", which falls back to the
         // defaults in Support\Columns (and to any legacy show_* toggles).
@@ -63,6 +64,7 @@ class CustomerPortStatusController extends BundleWidgetController
         $settings['time_interval'] = Cast::clampedInt($settings['time_interval'] ?? 15, 0, 1440, 15);
         $settings['min_down_minutes'] = Cast::clampedInt($settings['min_down_minutes'] ?? 0, 0, 10080, 0);
         $settings['show_admin_down'] = Cast::bool($settings['show_admin_down'] ?? false, false);
+        $settings['group_by'] = Cast::choice($settings['group_by'] ?? 'none', ['none', 'device', 'site'], 'none');
 
         $settings = Columns::normalize($settings, $this->name);
         $settings = Presentation::normalize($settings, $this->name);
@@ -93,7 +95,7 @@ class CustomerPortStatusController extends BundleWidgetController
         $query = Port::hasAccess($user)
             // uptime is required by downSeconds(): ifLastChange is relative to it.
             // Leaving it out made every "Down for" cell render as a dash.
-            ->with(['device' => fn ($q) => $q->select('device_id', 'hostname', 'sysName', 'status', 'os', 'display', 'uptime')])
+            ->with(['device' => fn ($q) => $q->select('device_id', 'hostname', 'sysName', 'status', 'os', 'display', 'uptime', 'location_id'), 'device.location'])
             ->isValid()
             ->select([
                 'ports.port_id', 'ports.device_id', 'ports.ifName', 'ports.ifDescr',
@@ -103,7 +105,7 @@ class CustomerPortStatusController extends BundleWidgetController
                 'ports.ifAlias', 'ports.ifSpeed', 'ports.ifOperStatus', 'ports.ifAdminStatus',
                 'ports.ifLastChange', 'ports.poll_time',
             ])
-            ->where('ports.ifOperStatus', 'down')
+            ->where('ports.ifOperStatus', '!=', 'up')
             ->when(! $settings['show_admin_down'], fn ($q) => $q->where('ports.ifAdminStatus', 'up'))
             ->when(
                 $settings['time_interval'] > 0,
@@ -117,7 +119,7 @@ class CustomerPortStatusController extends BundleWidgetController
         $minDownSeconds = $settings['min_down_minutes'] * 60;
 
         $query->chunkById(self::CHUNK_SIZE, function ($ports) use (
-            &$rows, &$matched, $match, $exclude, $minDownSeconds
+            &$rows, &$matched, $match, $exclude, $minDownSeconds, $settings
         ): void {
             foreach ($ports as $port) {
                 $haystack = trim(implode(' ', array_filter([
@@ -143,6 +145,15 @@ class CustomerPortStatusController extends BundleWidgetController
                 $rows[] = [
                     'port' => $port,
                     'down_seconds' => $down,
+                    'observed_at' => $port->poll_time ?? null,
+                    'circuit' => trim((string) $port->ifAlias),
+                    'parent_offline' => $port->device !== null && (int) $port->device->status === 0,
+                    'bucket' => $down === null ? __('Unknown duration') : ($down < 900 ? __('<15 minutes') : ($down < 3600 ? __('15–60 minutes') : ($down < 86400 ? __('1–24 hours') : __('24+ hours')))),
+                    'outage_group' => match ($settings['group_by']) {
+                        'device' => $port->device?->displayName() ?? __('Unknown device'),
+                        'site' => $port->device?->location?->location ?? __('Unknown site'),
+                        default => '',
+                    },
                     'admin_down' => strtolower((string) ($port->ifAdminStatus instanceof \BackedEnum
                         ? $port->ifAdminStatus->value
                         : $port->ifAdminStatus)) !== 'up',
@@ -154,7 +165,13 @@ class CustomerPortStatusController extends BundleWidgetController
         usort($rows, fn (array $a, array $b): int => ($b['down_seconds'] ?? -1) <=> ($a['down_seconds'] ?? -1));
 
         $total = count($rows);
+        $durationBuckets = array_count_values(array_column($rows, 'bucket'));
+        $offlineParents = count(array_filter($rows, fn ($row) => $row['parent_offline']));
+        $groupTotals = array_count_values(array_column($rows, 'outage_group'));
         $rows = array_slice($rows, 0, $settings['limit']);
+        if ($settings['group_by'] !== 'none') {
+            usort($rows, fn ($a, $b) => strcmp($a['outage_group'], $b['outage_group']) ?: (($b['down_seconds'] ?? -1) <=> ($a['down_seconds'] ?? -1)));
+        }
 
         $memberships = DeviceGroups::membershipMap(
             $groupIds,
@@ -169,7 +186,11 @@ class CustomerPortStatusController extends BundleWidgetController
         return view('widgets.customer-port-status', $settings + $this->shared($settings) + [
             'rows' => $rows,
             'down_total' => $total,
+            'matched_count' => $total,
             'matched_total' => $matched,
+            'duration_buckets' => $durationBuckets,
+            'offline_parent_ports' => $offlineParents,
+            'group_totals' => $groupTotals,
             'effective_regex' => $match->raw(),
             'group_label' => DeviceGroups::namesFor($user, $groupIds, __('All accessible devices')),
             'regex_problems' => $this->regexProblems($settings, $exclude),

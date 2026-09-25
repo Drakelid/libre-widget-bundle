@@ -1204,3 +1204,14 @@
 .worldmap_widget.nmsdw-map-nozoom .leaflet-control-zoom {
     display: none;
 }
+/* Shared record content remains available in compact, tiles and cards. */
+.nmsdw-record { overflow-wrap: anywhere; min-width: 0; }
+.nmsdw-record.nmsdw-rrow { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; }
+.nmsdw-record-identity { flex: 1 1 12rem; }
+.nmsdw-record-value { display: flex; flex-direction: column; align-items: flex-start; gap: .2rem; }
+.nmsdw-record-meta { display: flex; flex-wrap: wrap; flex-basis: 100%; gap: .35rem 1rem; }
+.nmsdw-record-links { display: flex; flex-wrap: wrap; gap: .75rem; }
+.nmsdw-record-graph { width: 100%; overflow: hidden; }
+.nmsdw-record a:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.nmsdw-stale { color: #b77800; }
+.nmsdw details > summary { cursor: pointer; margin: .35rem 0; }

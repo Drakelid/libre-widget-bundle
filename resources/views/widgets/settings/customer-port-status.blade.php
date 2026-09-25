@@ -1,6 +1,14 @@
 @extends('widgets.settings.base')
 
 @section('form')
+    <div class="form-group"><label>{{ __('Group displayed ports by') }}</label>
+        <select class="form-control" name="group_by">
+            @foreach(['none' => __('No grouping'), 'device' => __('Device'), 'site' => __('Site / device location')] as $key => $label)
+                <option value="{{ $key }}" @selected($group_by === $key)>{{ $label }}</option>
+            @endforeach
+        </select>
+        <span class="help-block">{{ __('The longest outages are selected first, then grouped. Circuit identifiers use the reported port alias; counts are ports, not unique customers.') }}</span>
+    </div>
     <div class="form-group">
         <label for="title-{{ $id }}" class="control-label">{{ __('Widget title') }}</label>
         <input type="text" class="form-control" name="title" id="title-{{ $id }}"

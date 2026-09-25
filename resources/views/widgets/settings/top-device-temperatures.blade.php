@@ -12,7 +12,7 @@
         <label for="device_count-{{ $id }}" class="control-label">{{ __('Number of devices') }}</label>
         <input type="number" step="1" min="1" max="100" class="form-control"
                name="device_count" id="device_count-{{ $id }}" value="{{ $device_count }}">
-        <span class="help-block">{{ __('One row per device, showing that device\'s hottest sensor.') }}</span>
+        <span class="help-block">{{ __('One row per device, showing the sensor selected by the ranking mode.') }}</span>
     </div>
 
     <div class="form-group">
@@ -84,6 +84,15 @@
             {{ __('Leave this on device/chassis only to avoid SFP, port, and interface module temperatures being shown as device temperatures. Regex filters are applied after this option.') }}
         </span>
     </div>
+    <div class="form-group">
+        <label for="ranking-{{ $id }}">{{ __('Rank devices by') }}</label>
+        <select class="form-control" name="ranking" id="ranking-{{ $id }}">
+            <option value="margin" @selected(($ranking ?? 'margin') === 'margin')>{{ __('Least headroom to sensor alarm threshold') }}</option>
+            <option value="temperature" @selected(($ranking ?? 'margin') === 'temperature')>{{ __('Highest temperature') }}</option>
+        </select>
+        <span class="help-block">{{ __('Sensor thresholds take precedence. Widget warning and limit values fill missing thresholds.') }}</span>
+    </div>
+    <div class="checkbox"><label><input type="hidden" name="show_history" value="0"><input type="checkbox" name="show_history" value="1" @checked($show_history ?? true)> {{ __('Show 24-hour temperature change') }}</label></div>
     <hr>
 
     @include('widgets.partials.nmsdw-presentation-fields', [

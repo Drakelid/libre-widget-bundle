@@ -3,6 +3,7 @@
 namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 
 use App\Models\Sensor;
+use Drakelid\NmsDashWidgets\Support\SensorInsights;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
 use Drakelid\NmsDashWidgets\Support\Presentation;
@@ -151,6 +152,9 @@ class SitePowerStatusController extends BundleWidgetController
                     'has_battery' => false,
                     'suspect' => 0,
                     'unknown_state' => false,
+                    'sources' => [],
+                    'reported_states' => [],
+                    'observed_at' => null,
                 ];
 
                 if (in_array($sensor->sensor_class, self::BATTERY_CLASSES, true)) {
@@ -160,7 +164,7 @@ class SitePowerStatusController extends BundleWidgetController
                 $deviceId = (int) $sensor->device_id;
 
                 if (! isset($sites[$key]['devices'][$deviceId])) {
-                    $sites[$key]['devices'][$deviceId] = true;
+                    $sites[$key]['devices'][$deviceId] = $sensor->device;
                     $sites[$key]['device_count']++;
                 }
 
@@ -178,6 +182,8 @@ class SitePowerStatusController extends BundleWidgetController
 
         foreach ($rows as $i => $row) {
             $rows[$i]['status'] = $this->classify($row, $settings);
+            $rows[$i]['conditions'] = $this->conditions($row, $settings);
+            $rows[$i]['voltage_min'] = $row['voltage'];
             // Display the high reading when it is the voltage causing the alarm.
             if ($row['voltage_max'] !== null && $settings['voltage_high'] !== null
                 && $row['voltage_max'] > $settings['voltage_high']
@@ -196,10 +202,12 @@ class SitePowerStatusController extends BundleWidgetController
             $rows = array_values(array_filter($rows, fn (array $r): bool => $r['status'] !== 'ok'));
         }
 
+        $matchedCount = count($rows);
         $rows = $this->rank($rows, $settings['limit']);
 
         return view('widgets.site-power-status', $settings + $this->shared($settings) + [
             'rows' => $rows,
+            'matched_count' => $matchedCount,
             'site_count' => count($sites),
             'battery_sites' => count(array_filter($sites, fn (array $r): bool => $r['has_battery'])),
             'suspect_sites' => $suspectSites,
@@ -236,6 +244,17 @@ class SitePowerStatusController extends BundleWidgetController
     private function applySensor(array &$site, Sensor $sensor, array $settings): void
     {
         $value = (float) $sensor->sensor_current;
+        $before = $site;
+        $source = [
+            'sensor_id' => $sensor->sensor_id ?? null,
+            'descr' => $sensor->sensor_descr,
+            'device' => $sensor->device ?? null,
+            'observed_at' => SensorInsights::polledAt($sensor),
+        ];
+        if ($source['observed_at'] !== null && (($site['observed_at'] ?? null) === null
+            || (string) $source['observed_at'] < (string) $site['observed_at'])) {
+            $site['observed_at'] = $source['observed_at'];
+        }
 
         switch ($sensor->sensor_class) {
             case 'runtime':
@@ -296,6 +315,7 @@ class SitePowerStatusController extends BundleWidgetController
                 }
 
                 $generic = (int) $translation->state_generic_value;
+                $site['reported_states'][] = $source + ['text' => $translation->state_descr, 'generic' => $generic];
                 if ($generic === 3) {
                     $site['unknown_state'] = true;
                 }
@@ -306,10 +326,41 @@ class SitePowerStatusController extends BundleWidgetController
                         'descr' => $sensor->sensor_descr,
                         'text' => $translation->state_descr,
                         'generic' => $generic,
+                        'source' => $source,
                     ];
                 }
                 break;
         }
+        foreach (['runtime_minutes', 'charge_percent', 'voltage', 'voltage_max', 'load_watts'] as $metric) {
+            if (($site[$metric] ?? null) !== ($before[$metric] ?? null)) {
+                $site['sources'][$metric] = $source;
+            }
+        }
+        if ($site['suspect'] > $before['suspect'] || ($site['unknown_state'] && ! $before['unknown_state'])) {
+            $site['sources']['unknown'] = $source;
+        }
+    }
+
+    /** Explicit reported states are kept separate from threshold-based reserve inference. */
+    private function conditions(array $site, array $settings): array
+    {
+        $conditions = [];
+        foreach ($site['states'] as $state) {
+            $conditions[] = ['label' => __('Reported state') . ': ' . $state['text'], 'source' => $state['source'] ?? null];
+        }
+        foreach ([
+            ['runtime_minutes', $settings['min_runtime_minutes'] > 0 && $site['runtime_minutes'] !== null && $site['runtime_minutes'] < $settings['min_runtime_minutes'], __('Low battery runtime (threshold)')],
+            ['charge_percent', $site['charge_percent'] !== null && $site['charge_percent'] < $settings['min_charge_percent'], __('Low battery charge (threshold)')],
+            ['voltage', $site['voltage'] !== null && $settings['voltage_low'] !== null && $site['voltage'] < $settings['voltage_low'], __('Low voltage (threshold)')],
+            ['voltage_max', $site['voltage_max'] !== null && $settings['voltage_high'] !== null && $site['voltage_max'] > $settings['voltage_high'], __('High voltage (threshold)')],
+            ['unknown', $site['suspect'] > 0 || $site['unknown_state'], __('Unknown or invalid reading')],
+        ] as [$metric, $applies, $label]) {
+            if ($applies) {
+                $conditions[] = ['label' => $label, 'source' => $site['sources'][$metric] ?? null];
+            }
+        }
+
+        return $conditions;
     }
 
     private function classify(array $site, array $settings): string

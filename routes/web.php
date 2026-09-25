@@ -7,6 +7,10 @@ use Illuminate\Support\Facades\Route;
 Route::group(['middleware' => ['web', 'auth']], function (): void {
     Route::namespace('Drakelid\NmsDashWidgets\Http\Controllers')->group(function (): void {
         Route::name('plugin.nmsdashwidgets.')->group(function (): void {
+            Route::post('plugin/nmsdashwidgets/filter-preview', 'RegexPreviewController')->name('filter-preview');
+            if (in_array('offline-devices-map', WidgetServiceProvider::enabledWidgets(), true)) {
+                Route::post('plugin/nmsdashwidgets/map-data', 'Widgets\\OfflineDevicesMapController@data')->name('map-data');
+            }
 
             /*
              * Dashboard widgets.

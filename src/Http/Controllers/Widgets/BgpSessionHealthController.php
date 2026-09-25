@@ -38,6 +38,9 @@ class BgpSessionHealthController extends BundleWidgetController
         'show_prefixes' => true,
         'prefix_drop_percent' => 20,
         'limit' => 25,
+        'remote_as' => '',
+        'description_filter' => '',
+        'vrf_filter' => '',
 
         // Visible columns. null means "never configured", which falls back to the
         // defaults in Support\Columns (and to any legacy show_* toggles).
@@ -62,6 +65,14 @@ class BgpSessionHealthController extends BundleWidgetController
         $settings['show_prefixes'] = Cast::bool($settings['show_prefixes'] ?? true, true);
         $settings['prefix_drop_percent'] = Cast::clampedFloat($settings['prefix_drop_percent'] ?? 20, 0, 100, 20);
         $settings['limit'] = Cast::clampedInt($settings['limit'] ?? 25, 1, 200, 25);
+        $settings['remote_as'] = Cast::nullableString($settings['remote_as'] ?? null) ?? '';
+        $settings['description_filter'] = Cast::nullableString($settings['description_filter'] ?? null) ?? '';
+        $settings['vrf_filter'] = Cast::nullableString($settings['vrf_filter'] ?? null) ?? '';
+        foreach (['remote_as', 'vrf_filter'] as $numericFilter) {
+            if ($settings[$numericFilter] !== '' && ! ctype_digit($settings[$numericFilter])) {
+                $settings[$numericFilter] = '-1'; // Invalid identifiers must not coerce to VRF/AS 0.
+            }
+        }
 
         $settings = Columns::normalize($settings, $this->name);
         $settings = Presentation::normalize($settings, $this->name);
@@ -83,11 +94,13 @@ class BgpSessionHealthController extends BundleWidgetController
         $groupIds = DeviceGroups::accessibleIds($user, $settings['device_groups']);
 
         $query = BgpPeer::hasAccess($user)
-            ->with(['device' => fn ($q) => $q->select('device_id', 'hostname', 'sysName', 'status', 'os', 'display')]);
+            ->with(['device' => fn ($q) => $q->select('device_id', 'hostname', 'sysName', 'status', 'os', 'display', 'last_polled')])
+            ->when($settings['remote_as'] !== '', fn ($q) => $q->where('bgpPeerRemoteAs', $settings['remote_as']))
+            ->when($settings['vrf_filter'] !== '', fn ($q) => $q->where('vrf_id', $settings['vrf_filter']));
 
         DeviceGroups::scopeToDevices($query, $groupIds, 'bgpPeers.device_id');
 
-        $stats = ['total' => 0, 'established' => 0, 'down' => 0, 'recent' => 0, 'admin_down' => 0];
+        $stats = ['total' => 0, 'established' => 0, 'down' => 0, 'recent' => 0, 'admin_down' => 0, 'unknown' => 0, 'matched' => 0];
         $rows = [];
         // Established sessions have been up for this many seconds or fewer => recent flap.
         $recentSeconds = $settings['recent_flap_minutes'] * 60;
@@ -97,6 +110,9 @@ class BgpSessionHealthController extends BundleWidgetController
         ): void {
             $chunkRows = [];
             foreach ($peers as $peer) {
+                if ($settings['description_filter'] !== '' && stripos((string) ($peer->bgpPeerDescr ?? ''), $settings['description_filter']) === false) {
+                    continue;
+                }
                 $stats['total']++;
 
                 $admin = strtolower(trim((string) $peer->bgpPeerAdminStatus));
@@ -120,8 +136,10 @@ class BgpSessionHealthController extends BundleWidgetController
                     $stats['established']++;
                 } elseif ($adminUp) {
                     $stats['down']++;
-                } else {
+                } elseif ($adminShut) {
                     $stats['admin_down']++;
+                } else {
+                    $stats['unknown']++;
                 }
 
                 if ($recent) {
@@ -159,6 +177,8 @@ class BgpSessionHealthController extends BundleWidgetController
                     'uptime_seconds' => $uptime,
                     'recent' => $recent,
                     'prefix' => null,
+                    'observed_at' => $peer->device?->last_polled ?? null,
+                    'reasons' => $recent ? [__('Recently re-established')] : ($adminUp && ! $established ? [__('Session not established')] : []),
                 ];
             }
 
@@ -171,6 +191,7 @@ class BgpSessionHealthController extends BundleWidgetController
             if ($settings['show'] === 'problems') {
                 $chunkRows = array_filter($chunkRows, fn (array $row): bool => in_array($row['status'], ['critical', 'warning'], true));
             }
+            $stats['matched'] += count($chunkRows);
 
             $rows = $this->rank(array_merge($rows, $chunkRows), $settings['limit']);
         }, 'bgpPeers.bgpPeer_id', 'bgpPeer_id');
@@ -208,10 +229,8 @@ class BgpSessionHealthController extends BundleWidgetController
      * prefixes is detectable without touching RRD.
      *
      * Counts are summed across address families, so a dual-stack peer reads as one
-     * session. Note the key is device_id + bgpPeerIdentifier: if the same peer address
-     * appears in more than one VRF on a device, their counts are summed together.
-     * bgpPeers identifies the VRF with vrf_id while bgpPeers_cbgp uses context_name,
-     * so there is no clean join between them.
+     * session. Context names isolate repeated peer addresses in different VRFs.
+     * Older peer rows obtain their SNMP context from the associated vrfs record.
      */
     private function attachPrefixCounts(array $rows, float $dropPercent): array
     {
@@ -220,13 +239,31 @@ class BgpSessionHealthController extends BundleWidgetController
         }
 
         $keys = [];
+        $vrfIds = array_values(array_unique(array_filter(array_map(
+            fn ($row) => (int) ($row['peer']->vrf_id ?? 0), $rows
+        ))));
+        $vrfContexts = $vrfIds === [] ? collect() : DB::table('vrfs')
+            ->whereIntegerInRaw('vrf_id', $vrfIds)->pluck('context_name', 'vrf_id');
 
-        foreach ($rows as $row) {
-            $keys[] = [(int) $row['peer']->device_id, (string) $row['peer']->bgpPeerIdentifier];
+        foreach ($rows as $i => $row) {
+            $vrfId = (int) ($row['peer']->vrf_id ?? 0);
+            $context = $row['peer']->context_name ?? null;
+            if ($context === null || $context === '') {
+                $context = $vrfContexts->get($vrfId);
+            }
+            // A non-default VRF without a context mapping cannot safely borrow
+            // the default context's prefixes. Leave its prefix data unavailable.
+            $rows[$i]['prefix_context'] = $vrfId > 0 && ($context === null || $context === '') ? null : (string) $context;
+            if ($rows[$i]['prefix_context'] !== null) {
+                $keys[] = [(int) $row['peer']->device_id, (string) $row['peer']->bgpPeerIdentifier];
+            }
+        }
+        if ($keys === []) {
+            return $rows;
         }
 
         $counts = DB::table('bgpPeers_cbgp')
-            ->select('device_id', 'bgpPeerIdentifier', 'afi', 'safi',
+            ->select('device_id', 'bgpPeerIdentifier', 'context_name', 'afi', 'safi',
                 'AcceptedPrefixes', 'AcceptedPrefixes_prev', 'AcceptedPrefixes_delta',
                 'AdvertisedPrefixes', 'PrefixAdminLimit')
             ->where(function ($query) use ($keys): void {
@@ -238,10 +275,13 @@ class BgpSessionHealthController extends BundleWidgetController
                 }
             })
             ->get()
-            ->groupBy(fn ($r): string => $r->device_id . ':' . $r->bgpPeerIdentifier);
+            ->groupBy(fn ($r): string => json_encode([(int) $r->device_id, (string) $r->bgpPeerIdentifier, (string) $r->context_name]));
 
         foreach ($rows as $i => $row) {
-            $key = $row['peer']->device_id . ':' . $row['peer']->bgpPeerIdentifier;
+            if ($row['prefix_context'] === null) {
+                continue;
+            }
+            $key = json_encode([(int) $row['peer']->device_id, (string) $row['peer']->bgpPeerIdentifier, $row['prefix_context']]);
             $entries = $counts->get($key);
 
             if ($entries === null || $entries->isEmpty()) {
@@ -271,6 +311,9 @@ class BgpSessionHealthController extends BundleWidgetController
             // A collapsing table on an otherwise healthy session is still a fault.
             if ($dropped && $rows[$i]['status'] === 'ok') {
                 $rows[$i]['status'] = 'warning';
+            }
+            if ($dropped) {
+                $rows[$i]['reasons'][] = __('Accepted prefixes dropped') . ' ' . round((($prev - $accepted) / $prev) * 100, 1) . '%';
             }
         }
 

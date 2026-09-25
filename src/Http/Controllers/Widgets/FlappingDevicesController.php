@@ -3,6 +3,8 @@
 namespace Drakelid\NmsDashWidgets\Http\Controllers\Widgets;
 
 use App\Models\Device;
+use App\Models\Port;
+use LibreNMS\Util\Url;
 use Drakelid\NmsDashWidgets\Support\BundleWidgetController;
 use Drakelid\NmsDashWidgets\Support\Cast;
 use Drakelid\NmsDashWidgets\Support\Columns;
@@ -116,31 +118,71 @@ class FlappingDevicesController extends BundleWidgetController
 
         $rows = $rows
             ->filter(fn ($row): bool => (int) $row->changes >= $settings['min_changes'])
-            ->sortByDesc(fn ($row) => [(int) $row->changes, (string) $row->last_change])
-            ->take($settings['limit'])
-            ->values()
-            ->map(function ($row) use ($settings) {
+            ->sortByDesc(fn ($row) => [(int) $row->changes, (string) $row->last_change]);
+        $summary = $this->summary($rows);
+        $rows = $rows->take($settings['limit'])->values();
+        $devices = Device::hasAccess($request->user())->whereIntegerInRaw('device_id', $rows->pluck('device_id')->unique()->all())->get()->keyBy('device_id');
+        $ports = Port::hasAccess($request->user())->whereIntegerInRaw('port_id', $rows->pluck('port_id')->filter()->all())->get()->keyBy('port_id');
+        $rows = $rows->map(function ($row) use ($settings, $devices, $ports, $since) {
                 $row->state = $this->stateFromMessage($row->last_message);
+                $device = $devices->get($row->device_id);
+                $port = $ports->get($row->port_id);
+                $operStatus = $port?->ifOperStatus;
+                $operStatus = $operStatus instanceof \BackedEnum ? $operStatus->value : $operStatus;
+                $row->current_state = $row->item_type === 'port'
+                    ? ($operStatus ? ucfirst((string) $operStatus) : __('Unknown / removed'))
+                    : (! $device || ! $device->last_polled ? __('Unknown') : ($device->disabled ? __('Disabled') : ($device->status ? __('Up') : __('Down'))));
+                $row->observed_at = $row->item_type === 'port'
+                    ? ($port?->poll_time ? Carbon::createFromTimestamp((int) $port->poll_time) : null)
+                    : $device?->last_polled;
+                $row->device_url = Url::deviceUrl((int) $row->device_id);
+                $row->item_url = $port ? Url::portUrl($port) : $row->device_url;
+                $row->event_url = Url::deviceUrl((int) $row->device_id, ['tab' => 'logs', 'section' => 'eventlog']);
+                $row->timeline = $this->timeline($row, $since);
                 $row->severity = $this->severity((int) $row->changes, $settings['min_changes']);
                 $row->short_message = Str::limit((string) $row->last_message, 95);
 
                 return $row;
             });
 
-        return $this->render($settings, $rows);
+        return $this->render($settings, $rows, $summary);
     }
 
-    private function render(array $settings, Collection $rows): View
+    private function summary(Collection $rows): array
+    {
+        return [
+            'matched' => $rows->count(),
+            'total_changes' => (int) $rows->sum('changes'),
+            'devices' => $rows->where('item_type', 'device')->count(),
+            'ports' => $rows->where('item_type', 'port')->count(),
+            'last_change' => optional($rows->sortByDesc('last_change')->first())->last_change,
+        ];
+    }
+
+    private function render(array $settings, Collection $rows, ?array $summary = null): View
     {
         return view('widgets.flapping-devices', $settings + $this->shared($settings) + [
             'rows' => $rows,
-            'summary' => [
-                'total_changes' => (int) $rows->sum('changes'),
-                'devices' => $rows->where('item_type', 'device')->count(),
-                'ports' => $rows->where('item_type', 'port')->count(),
-                'last_change' => optional($rows->sortByDesc('last_change')->first())->last_change,
-            ],
+            'summary' => $summary ?? $this->summary($rows),
         ]);
+    }
+
+    private function timeline(object $row, string $since): Collection
+    {
+        $query = DB::table('eventlog')->where('device_id', $row->device_id)
+            ->where('datetime', '>=', $since)->where('message', 'REGEXP', self::UP_DOWN_REGEX);
+        if ($row->item_type === 'port') {
+            $query->where('reference', $row->event_reference)->where('type', '!=', 'device')
+                ->where(fn ($q) => $q->whereIn('type', ['interface', 'port'])->orWhere('message', 'REGEXP', 'ifOperStatus|oper.*status|link.*(up|down)'));
+        } else {
+            $query->where(fn ($q) => $q->where('type', 'device')->orWhere(fn ($q) => $q->whereNull('reference')
+                ->whereNotIn('type', ['interface', 'port'])->where('message', 'REGEXP', 'Device status|status changed|changed status')));
+        }
+        return $query->orderByDesc('datetime')->orderByDesc('event_id')->limit(8)->get(['datetime', 'message'])
+            ->map(function ($event) {
+                $event->state = $this->stateFromMessage($event->message);
+                return $event;
+            });
     }
 
     /**
@@ -226,6 +268,7 @@ class FlappingDevicesController extends BundleWidgetController
                 DB::raw("'port' as item_type"),
                 DB::raw('COALESCE(NULLIF(d.display, ""), NULLIF(d.sysName, ""), d.hostname) as device_name'),
                 DB::raw('COALESCE(p.port_id, 0) as port_id'),
+                'e.reference as event_reference',
                 // CONCAT() returns NULL if any argument is NULL, so a null reference used to
                 // produce a nameless row. The literal at the end guarantees a label.
                 DB::raw('COALESCE(NULLIF(p.ifAlias, ""), NULLIF(p.ifName, ""), NULLIF(p.ifDescr, ""), CONCAT("Port ref ", COALESCE(e.reference, "?")), "Unknown port") as port_name'),

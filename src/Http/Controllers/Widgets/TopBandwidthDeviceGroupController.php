@@ -16,8 +16,7 @@ use Illuminate\View\View;
 /**
  * Ports ranked by current total throughput, optionally scoped to device groups.
  *
- * Utilisation here is TOTAL based ((in + out) / ifSpeed). The uplink widget uses
- * PEAK instead; the two are deliberately different and must not be unified.
+ * Full-duplex utilisation uses the busier direction; combined traffic is throughput.
  */
 class TopBandwidthDeviceGroupController extends BundleWidgetController
 {
@@ -28,6 +27,8 @@ class TopBandwidthDeviceGroupController extends BundleWidgetController
         'top_count' => 10,
         'time_interval' => 15,
         'interface_filter' => null,
+        'sort_by' => 'combined',
+        'interface_scope' => 'all',
         'device_groups' => [],
         'show_graphs' => 1,
         'show_utilisation' => 1,
@@ -52,6 +53,8 @@ class TopBandwidthDeviceGroupController extends BundleWidgetController
         $settings['top_count'] = Cast::clampedInt($settings['top_count'] ?? 10, 1, 50, 10);
         $settings['time_interval'] = Cast::clampedInt($settings['time_interval'] ?? 15, 1, 1440, 15);
         $settings['interface_filter'] = Cast::nullableString($settings['interface_filter'] ?? null);
+        $settings['sort_by'] = Cast::choice($settings['sort_by'] ?? 'combined', ['rx', 'tx', 'combined', 'utilisation'], 'combined');
+        $settings['interface_scope'] = Cast::choice($settings['interface_scope'] ?? 'all', ['all', 'physical', 'aggregate'], 'all');
         $settings['show_graphs'] = Cast::bool($settings['show_graphs'] ?? true, true);
         $settings['show_utilisation'] = Cast::bool($settings['show_utilisation'] ?? true, true);
         $settings['device_groups'] = DeviceGroups::ids($settings['device_groups'] ?? []);
@@ -95,19 +98,26 @@ class TopBandwidthDeviceGroupController extends BundleWidgetController
                 'ports.ifSpeed',
                 'ports.ifInOctets_rate',
                 'ports.ifOutOctets_rate',
+                'ports.poll_time',
             ])
             ->where('ports.poll_time', '>', Carbon::now()->subMinutes($settings['time_interval'])->timestamp)
             ->when(empty($groupIds), fn ($query) => $query->has('device'))
             ->when($settings['interface_filter'], fn ($query) => $query->where('ports.ifType', '=', $settings['interface_filter']))
-            // LEAST() guards against counter overflow producing an absurd rate that
-            // would otherwise dominate the ordering. Inherited from core's top-interfaces.
-            ->orderByRaw('(LEAST(COALESCE(ports.ifInOctets_rate, 0), 9223372036854775807)'
-                . ' + LEAST(COALESCE(ports.ifOutOctets_rate, 0), 9223372036854775807)) DESC')
-            ->limit($settings['top_count']);
+            ->when($settings['interface_scope'] === 'physical', fn ($q) => $q->whereIn('ports.ifType', ['ethernetCsmacd', 'iso88023Csmacd']))
+            ->when($settings['interface_scope'] === 'aggregate', fn ($q) => $q->where('ports.ifType', 'ieee8023adLag'));
 
         DeviceGroups::scopeToDevices($query, $groupIds);
 
-        $ports = $query->get();
+        $matched = (clone $query)->count();
+        $rx = 'GREATEST(0, LEAST(COALESCE(ports.ifInOctets_rate, 0), 9223372036854775807))';
+        $tx = 'GREATEST(0, LEAST(COALESCE(ports.ifOutOctets_rate, 0), 9223372036854775807))';
+        $order = match ($settings['sort_by']) {
+            'rx' => $rx,
+            'tx' => $tx,
+            'utilisation' => "CASE WHEN ports.ifSpeed > 0 THEN GREATEST($rx, $tx) * 800.0 / ports.ifSpeed ELSE -1 END",
+            default => "($rx + $tx)",
+        };
+        $ports = $query->orderByRaw($order . ' DESC')->orderBy('ports.port_id')->limit($settings['top_count'])->get();
 
         $memberships = DeviceGroups::membershipMap(
             $groupIds,
@@ -118,13 +128,16 @@ class TopBandwidthDeviceGroupController extends BundleWidgetController
         // Bars are proportional to the busiest port on screen.
         $peakTotal = 0.0;
 
-        $rows = $ports->map(function (Port $port) use ($memberships, &$peakTotal): array {
+        $rows = $ports->map(function (Port $port) use ($memberships, &$peakTotal, $settings): array {
             $inBps = Format::octetsToBits($port->ifInOctets_rate);
             $outBps = Format::octetsToBits($port->ifOutOctets_rate);
             $totalBps = $inBps + $outBps;
-            $peakTotal = max($peakTotal, $totalBps);
-
-            $utilisation = Format::utilisation($totalBps, (float) ($port->ifSpeed ?? 0));
+            $utilisation = Format::utilisation(max($inBps, $outBps), (float) ($port->ifSpeed ?? 0));
+            $rankValue = match ($settings['sort_by']) {
+                'rx' => $inBps, 'tx' => $outBps, 'utilisation' => $utilisation ?? 0,
+                default => $totalBps,
+            };
+            $peakTotal = max($peakTotal, $rankValue);
 
             return [
                 'port' => $port,
@@ -132,6 +145,11 @@ class TopBandwidthDeviceGroupController extends BundleWidgetController
                 'out_label' => Format::bits($outBps),
                 'total_label' => Format::bits($totalBps),
                 'total_bps' => $totalBps,
+                'rank_value' => $rankValue,
+                'rank_label' => $settings['sort_by'] === 'utilisation' ? Format::percent($utilisation) : Format::bits($rankValue),
+                'observed_at' => $port->poll_time,
+                'rx_utilisation' => Format::percent(Format::utilisation($inBps, (float) $port->ifSpeed)),
+                'tx_utilisation' => Format::percent(Format::utilisation($outBps, (float) $port->ifSpeed)),
                 'utilisation' => $utilisation,
                 'utilisation_label' => Format::percent($utilisation),
                 'group_names' => $memberships->get($port->device_id, ''),
@@ -140,12 +158,14 @@ class TopBandwidthDeviceGroupController extends BundleWidgetController
 
         foreach ($rows as $index => $row) {
             $rows[$index]['bar_percent'] = $peakTotal > 0
-                ? max(2, round(($row['total_bps'] / $peakTotal) * 100))
+                ? max(2, round(($row['rank_value'] / $peakTotal) * 100))
                 : 0;
         }
 
         return view('widgets.top-bandwidth-device-group', $settings + $this->shared($settings) + [
             'rows' => $rows,
+            'matched_total' => $matched,
+            'sort_label' => match ($settings['sort_by']) { 'rx' => __('RX throughput'), 'tx' => __('TX throughput'), 'utilisation' => __('Peak directional utilisation'), default => __('Combined throughput') },
             'group_label' => DeviceGroups::namesFor($user, $groupIds, __('All device groups')),
             'has_group_filter' => ! empty($groupIds),
         ]);

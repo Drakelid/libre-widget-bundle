@@ -1,6 +1,16 @@
 @extends('widgets.settings.base')
 
 @section('form')
+    <div class="form-group"><label>{{ __('Remote AS (exact)') }}</label>
+        <input class="form-control" name="remote_as" type="number" min="0" max="4294967295" value="{{ $remote_as }}" placeholder="{{ __('All AS numbers') }}">
+    </div>
+    <div class="form-group"><label>{{ __('Peer description contains') }}</label>
+        <input class="form-control" name="description_filter" value="{{ $description_filter }}">
+    </div>
+    <div class="form-group"><label>{{ __('VRF ID (exact)') }}</label>
+        <input class="form-control" name="vrf_filter" type="number" min="0" value="{{ $vrf_filter }}" placeholder="{{ __('All VRFs') }}">
+        <span class="help-block">{{ __('Use the LibreNMS VRF identifier. Leave blank to include every VRF.') }}</span>
+    </div>
     <div class="form-group">
         <label for="title-{{ $id }}" class="control-label">{{ __('Widget title') }}</label>
         <input type="text" class="form-control" name="title" id="title-{{ $id }}"

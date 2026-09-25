@@ -2,6 +2,13 @@
 
 @section('form')
     <div class="form-group">
+        <label for="show_unique_total-{{ $id }}">{{ __('Show unique-device total alongside group sum') }}</label>
+        <select class="form-control" name="show_unique_total" id="show_unique_total-{{ $id }}">
+            <option value="0" @selected(! $show_unique_total)>{{ __('No') }}</option>
+            <option value="1" @selected($show_unique_total)>{{ __('Yes') }}</option>
+        </select>
+    </div>
+    <div class="form-group">
         <label for="title-{{ $id }}" class="control-label">{{ __('Widget title') }}</label>
         <input type="text" class="form-control" name="title" id="title-{{ $id }}"
                placeholder="{{ __('Device Group Down Count') }}" value="{{ $title }}">

@@ -13,13 +13,17 @@
     @include('widgets.partials.nmsdw-regex-warning', ['problems' => $regex_problems])
 
     <div class="nmsdw-tiles">
-        @include('widgets.partials.nmsdw-tile', ['value' => $down_total, 'label' => __('Ports down')])
-        @include('widgets.partials.nmsdw-tile', ['value' => $matched_total, 'label' => __('Matched down')])
+        @include('widgets.partials.nmsdw-tile', ['value' => $down_total, 'label' => __('Reported not up')])
+        @include('widgets.partials.nmsdw-tile', ['value' => $matched_total, 'label' => __('Before duration filter')])
+        @include('widgets.partials.nmsdw-tile', ['value' => $offline_parent_ports, 'label' => __('Ports on offline parents')])
+        @foreach($duration_buckets as $bucket => $count)
+            @include('widgets.partials.nmsdw-tile', ['value' => $count, 'label' => $bucket])
+        @endforeach
     </div>
 
     @if(empty($rows))
         @include('widgets.partials.nmsdw-empty', [
-            'message' => __('No customer ports are down.'),
+            'message' => __('No customer ports match the outage, freshness and duration filters.'),
             'hint' => __('Ports are matched on ifAlias, ifName and ifDescr. Adjust the regex if your naming convention differs.'),
         ])
     @else
@@ -29,14 +33,18 @@
             $records = collect($rows)->map(fn ($r) => [
                 'title' => e($r['port']->device?->displayName() ?? __('Unknown device')),
                 'subtitle' => $r['port']->ifAlias ?: ($r['port']->ifName ?: $r['port']->ifDescr),
-                'value' => $r['admin_down'] ? __('shut') : __('DOWN'),
-                'unit' => $r['down_seconds'] !== null
+                'value' => $r['parent_offline'] ? __('Parent offline') : ($r['admin_down'] ? __('shut') : __('Not up')),
+                'observed_at' => $r['observed_at'],
+                'unit' => $cols['downfor'] && $r['down_seconds'] !== null
                     ? \Carbon\CarbonInterval::seconds($r['down_seconds'])->cascade()->forHumans(['short' => true, 'parts' => 2])
                     : null,
-                'status' => $r['admin_down'] ? 'unknown' : 'critical',
+                'status' => $r['parent_offline'] || $r['admin_down'] ? 'unknown' : 'critical',
                 'meta' => array_values(array_filter([
                     [__('Port'), $r['port']->ifName ?: $r['port']->ifDescr],
-                    $r['group_names'] ? [__('Group'), $r['group_names']] : null,
+                    $cols['group'] && $r['group_names'] ? [__('Group'), $r['group_names']] : null,
+                    $r['outage_group'] ? [__('Outage group'), $r['outage_group']] : null,
+                    $r['circuit'] !== '' ? [__('Circuit / alias'), $r['circuit']] : null,
+                    $r['parent_offline'] ? [__('Note'), __('Port state is last reported; parent is offline')] : null,
                 ])),
                 'href' => \LibreNMS\Util\Url::portUrl($r['port']),
             ])->all();
@@ -63,23 +71,30 @@
                 </tr>
             </thead>
             <tbody>
+                @php($previousGroup = null)
                 @foreach($rows as $row)
                     @php($port = $row['port'])
+                    @if($group_by !== 'none' && $previousGroup !== $row['outage_group'])
+                        <tr><th colspan="{{ 3 + (int) $cols['downfor'] + (int) $cols['group'] }}">{{ $row['outage_group'] }} &middot; {{ $group_totals[$row['outage_group']] }} {{ __('matching ports') }}</th></tr>
+                        @php($previousGroup = $row['outage_group'])
+                    @endif
                     <tr>
                         <td class="nmsdw-strong">
                             @include('widgets.partials.nmsdw-device-cell', ['linkDevice' => $port->device])
+                            @include('widgets.partials.nmsdw-data-age', ['timestamp' => $row['observed_at']])
                         </td>
                         <td>
                             <x-port-link :port="$port" />
                             @if($port->ifAlias)
-                                <span class="nmsdw-sec">{{ $port->ifAlias }}</span>
+                                <span class="nmsdw-sec">{{ __('Circuit / alias') }}: {{ $row['circuit'] }}</span>
                             @endif
                         </td>
                         <td class="nmsdw-nowrap">
                             @include('widgets.partials.nmsdw-pill', [
-                                'status' => $row['admin_down'] ? 'unknown' : 'critical',
-                                'label' => $row['admin_down'] ? __('shut') : __('DOWN'),
+                                'status' => $row['parent_offline'] || $row['admin_down'] ? 'unknown' : 'critical',
+                                'label' => $row['parent_offline'] ? __('Parent offline') : ($row['admin_down'] ? __('shut') : __('Not up')),
                             ])
+                            @if($row['parent_offline'])<span class="nmsdw-sec">{{ __('Port state is last reported; parent is offline') }}</span>@endif
                         </td>
                         @if($cols['downfor'])
                             <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
@@ -99,10 +114,7 @@
         </table>
     @endif
 
-        @if($down_total > count($rows))
-            <div class="nmsdw-note">
-                {{ __('Showing :shown of :total matching ports that are down.', ['shown' => count($rows), 'total' => $down_total]) }}
-            </div>
-        @endif
     @endif
+    @include('widgets.partials.nmsdw-result-count', ['shown' => count($rows), 'matched' => $down_total, 'noun' => __('ports')])
+    <div class="nmsdw-note">{{ __('Counts describe matching ports, not unique customers. Durations are relative to the last device sample; offline parents have no live port confirmation.') }}</div>
 </div>

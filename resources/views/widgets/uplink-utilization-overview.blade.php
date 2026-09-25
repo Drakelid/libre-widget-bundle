@@ -66,12 +66,18 @@
                 'value' => $r['utilisation_label'],
                 'unit' => __('peak :v', ['v' => $r['peak_label']]),
                 'status' => $r['status'],
+                'observed_at' => $r['observed_at'],
+                'graph' => $cols['graph'] ? view('widgets.partials.nmsdw-network-graph', ['port' => $r['port']])->render() : null,
                 'bar' => $r['utilisation'] ?? 0,
-                'meta' => [
-                    ['RX', $r['in_label']],
-                    ['TX', $r['out_label']],
-                    [__('Speed'), $r['speed_label']],
-                ],
+                'meta' => array_values(array_filter([
+                    $cols['traffic'] ? ['RX', $r['in_label']] : null,
+                    $cols['traffic'] ? ['TX', $r['out_label']] : null,
+                    $cols['speed'] ? [__('Speed'), $r['speed_label']] : null,
+                    [__('Remaining RX / TX'), $r['remaining_rx'] . ' / ' . $r['remaining_tx']],
+                    [__('RX / TX utilisation'), $r['rx_utilisation'] . ' / ' . $r['tx_utilisation']],
+                    $cols['group'] ? [__('Group'), $r['group_names']] : null,
+                    $r['history'] ? [__('History'), $r['history']['available'] ? ($r['history']['sustained'] ? __('Sustained congestion') : __('Not sustained')) . ' · ' . $r['history']['minutes'] . ' min · ' . count($r['history']['points']) . ' samples' : __('Unavailable') . ': ' . ($r['history']['reason'] ?? '')] : null,
+                ])),
                 'href' => \LibreNMS\Util\Url::portUrl($r['port']),
             ])->all();
         @endphp
@@ -108,6 +114,7 @@
                     <tr>
                         <td class="nmsdw-strong">
                             @include('widgets.partials.nmsdw-device-cell', ['linkDevice' => $port->device])
+                            @include('widgets.partials.nmsdw-data-age', ['timestamp' => $row['observed_at']])
                         </td>
                         <td>
                             <x-port-link :port="$port">
@@ -123,6 +130,19 @@
                                 'label' => $row['utilisation_label'],
                             ])
                             <div class="nmsdw-sec">{{ __('peak') }} {{ $row['peak_label'] }}</div>
+                            <div class="nmsdw-sec">RX {{ $row['rx_utilisation'] }} / TX {{ $row['tx_utilisation'] }}</div>
+                            <div class="nmsdw-sec">{{ __('Remaining RX / TX') }}: {{ $row['remaining_rx'] }} / {{ $row['remaining_tx'] }}</div>
+                            @if($row['history'])
+                                <div class="nmsdw-sec">
+                                    {{ __('History') }}:
+                                    @if($row['history']['available'])
+                                        {{ $row['history']['sustained'] ? __('Sustained congestion') : __('Not sustained') }}
+                                        &middot; {{ $row['history']['minutes'] }} min &middot; {{ count($row['history']['points']) }} {{ __('samples') }}
+                                    @else
+                                        {{ __('Unavailable') }}: {{ $row['history']['reason'] ?? '' }}
+                                    @endif
+                                </div>
+                            @endif
                             @include('widgets.partials.nmsdw-meter', [
                                 'percent' => $row['utilisation'] ?? 0,
                                 'status' => $row['status'],
@@ -131,9 +151,9 @@
                                 {{ __('Warning') }} {{ $warning_threshold }}% &middot;
                                 {{ __('Critical') }} {{ $critical_threshold }}%
                             </div>
-                            <span class="nmsdw-sec nmsdw-show-narrow">
+                            @if($cols['traffic'])<span class="nmsdw-sec nmsdw-show-narrow">
                                 RX: {{ $row['in_label'] }} &middot; TX: {{ $row['out_label'] }}
-                            </span>
+                            </span>@endif
                         </td>
                         @if($cols['traffic'])
                             <td class="nmsdw-hide-narrow nmsdw-muted nmsdw-nowrap">
@@ -164,13 +184,7 @@
         </table>
     @endif
 
-        @if($summary['matched'] > count($rows))
-            <div class="nmsdw-note">
-                {{ __('Showing the :shown highest of :matched matched uplinks. Summary figures above cover all matches.', [
-                    'shown' => count($rows),
-                    'matched' => $summary['matched'],
-                ]) }}
-            </div>
-        @endif
     @endif
+    @include('widgets.partials.nmsdw-result-count', ['shown' => count($rows), 'matched' => $summary['matched'], 'noun' => __('uplinks')])
+    @if($history_enabled)<div class="nmsdw-note">{{ __('History covers displayed uplinks only. Summary figures use current samples across every match.') }}</div>@endif
 </div>

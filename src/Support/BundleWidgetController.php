@@ -77,6 +77,7 @@ abstract class BundleWidgetController extends WidgetController
         // Keep cached settings scalar: getTitle() loads them before the settings
         // form, and core only resolves group models on the initial load.
         $settings = parent::getSettings(false);
+        $settings['preview_slug'] = $this->name;
 
         if (! array_key_exists('device_group', $this->defaults)) {
             return $settings;
@@ -96,11 +97,63 @@ abstract class BundleWidgetController extends WidgetController
         }
 
         $settings = $this->settings;
+        $settings['preview_slug'] = $this->name;
         if ($settingsView && ! empty($settings['device_group'])) {
             $settings['device_group'] = DeviceGroup::find($id);
         }
 
         return $settings;
+    }
+
+    /** Preview unsaved regex/group choices using the widget's real query pipeline. */
+    public function regexPreview(Request $request): array
+    {
+        $fields = match ($this->name) {
+            'uplink-utilization-overview' => ['uplink_regex', 'exclude_regex'],
+            'customer-port-status' => ['match_regex', 'exclude_regex'],
+            'top-device-temperatures' => ['sensor_include_regex', 'sensor_exclude_regex'],
+            'optical-light-levels' => ['include_regex', 'exclude_regex'],
+            default => [],
+        };
+        abort_if($fields === [], 404);
+        $rules = ['device_groups' => 'nullable|array|max:100', 'device_groups.*' => 'integer|min:1'];
+        foreach ($fields as $field) {
+            $rules[$field] = 'nullable|string|max:' . SafeRegex::MAX_LENGTH;
+        }
+        $input = $request->validate($rules);
+        $settings = $this->getSettings(); // Includes core dashboard authorization.
+        foreach ($fields as $field) {
+            $pattern = SafeRegex::make($input[$field] ?? '');
+            if ($pattern->isInvalid()) {
+                return ['error' => $pattern->error(), 'examples' => []];
+            }
+            $settings[$field] = $pattern->raw();
+        }
+        $settings['device_groups'] = $input['device_groups'] ?? [];
+        if ($settings['device_groups'] !== [] && DeviceGroups::accessibleIds(Auth::user(), $settings['device_groups']) === []) {
+            return ['matched' => 0, 'examples' => [], 'note' => __('No accessible devices in the selected groups.')];
+        }
+        // Preview never fetches history; only the first five examples are needed.
+        $settings['show_history'] = false;
+        $settings['history_enabled'] = false;
+        foreach (['limit', 'top_count', 'sensor_count', 'device_count'] as $key) {
+            if (array_key_exists($key, $settings)) {
+                $settings[$key] = 5;
+            }
+        }
+        $this->settings = $settings;
+        $view = $this->getView($request);
+        $data = $view->getData();
+        $examples = [];
+        foreach (collect($data['rows'] ?? [])->take(5) as $row) {
+            $model = $row['port'] ?? $row['sensor'] ?? null;
+            if ($model) {
+                $examples[] = trim(($model->device?->displayName() ?? '') . ' ' . ($model->sensor_descr ?? $model->ifAlias ?? $model->ifName ?? $model->ifDescr ?? ''));
+            }
+        }
+
+        return ['matched' => $data['matched_count'] ?? null, 'examples' => $examples,
+            'problems' => $data['regex_problems'] ?? [], 'note' => __('Other filters use the saved widget settings.')];
     }
 
     /**

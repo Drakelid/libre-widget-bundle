@@ -2,19 +2,39 @@
 
 ## Automated (no LibreNMS needed)
 
-The `Support/` layer is deliberately free of Eloquent and framework facades:
+Run the complete PHP suite and the map JavaScript checks:
 
 ```bash
 composer install
-vendor/bin/phpunit
+composer test
+composer test:map
 ```
 
-Covers bit-rate/percent/temperature formatting, the deci-Celsius scaling heuristics,
-regex compilation and backtracking protection, settings coercion, and device-group id
-normalisation against the shapes the live database actually stores.
+The suite includes real Blade compilation and shared-layout rendering, class-load
+contracts, pure helper tests, and controller regressions using small LibreNMS host
+and query doubles. It checks settings, permissions at selected boundaries, optical
+mapping/pairing, thresholds, power provenance, history gaps, regex previews, network
+metrics, VRF isolation, map recovery and display counts. These doubles do not prove
+real SQL execution or full browser integration.
 
-Everything else — controllers, queries, blades — needs a real instance. **None of the
-checks below have been run yet**; they are the acceptance gate for this release.
+## Real LibreNMS rendering
+
+Use a dedicated migrated and seeded LibreNMS test database with `APP_ENV=testing`,
+all twelve widgets enabled, and this working copy installed as the plugin. The test
+refuses other application environments. Supply a test user and a dashboard that
+user can view:
+
+```bash
+composer test:integration -- /path/to/librenms USER_ID DASHBOARD_ID
+```
+
+This boots the real host, loads stored widget settings, executes the real queries,
+and renders settings plus each supported layout. Temporary widget rows are rolled
+back in a transaction. Run once as an administrator and once as a restricted user.
+Seed accessible and inaccessible devices, online/offline ports, sensor readings,
+VRFs, pollers and maintenance schedules to exercise nonempty results. A run against
+an empty database only verifies empty states. It does not fetch RRD history or run
+browser JavaScript. Live host/database/RRD validation was not available locally.
 
 ## Manual acceptance
 
@@ -41,8 +61,8 @@ On a LibreNMS test instance also verify:
   upper limit. Invalid-only battery readings remain unknown, not healthy.
 - A user without poller-view permission sees no poller inventory; an authorized
   user does. Nodes inheriting a non-default frequency use that configured interval.
-- Map popup device names containing HTML display literally. Fail one selected
-  group's request: previous markers remain with a visible stale-data warning.
+- Map popup device names containing HTML display literally. Fail the map snapshot
+  request: previous markers remain with a visible stale-data warning.
   Restore the request: the complete snapshot replaces the old data and clears it.
 
 Run against a LibreNMS 26.8.1 instance with a copy of production data.
@@ -55,9 +75,9 @@ Run against a LibreNMS 26.8.1 instance with a copy of production data.
 
 ### Gate 1 — registration
 
-- [ ] `php artisan route:list --path=ajax/dash` lists all six new routes with prefix
+- [ ] `php artisan route:list --path=ajax/dash` lists all twelve widget routes with prefix
       `ajax/dash`, alongside core's existing widget routes.
-- [ ] All six appear in the dashboard **Add Widget** picker, with correct titles.
+- [ ] All twelve appear in the dashboard **Add Widget** picker, with correct titles.
 - [ ] `group-world-map` does **not** appear.
 - [ ] The plugin settings page renders and shows the version beside the heading and
       in the footer. It must read e.g. "v1.7.6", not "vv1.7.6" and not blank.

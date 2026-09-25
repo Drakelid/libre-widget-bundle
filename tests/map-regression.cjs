@@ -29,8 +29,8 @@ function setup() {
             done(fn) { callbacks.done = fn; return this; },
             fail(fn) { callbacks.fail = fn; return this; },
             always(fn) { callbacks.always = fn; return this; },
-            resolve(data) { callbacks.done(data); callbacks.always(); },
-            reject() { callbacks.fail({ statusText: 'Unavailable' }); callbacks.always(); },
+            resolve(data) { callbacks.done(data); callbacks.always?.(); },
+            reject() { callbacks.fail({ statusText: 'Unavailable' }); callbacks.always?.(); },
         };
         requests.push(request);
         return request;
@@ -38,13 +38,14 @@ function setup() {
     vm.runInNewContext(script, {
         $, URL, window: { location: { href: 'https://nms.example/dashboard' } },
         document: { createElement(tag) {
-            const element = { tag, style: {}, setAttribute() {} };
+            const element = { tag, style: {}, children: [], listeners: {}, setAttribute() {}, appendChild(child) { this.children.push(child); }, replaceChildren(...children) { this.children = children; }, addEventListener(name, fn) { this.listeners[name] = fn; } };
             elements.push(element);
             return element;
         } },
         loadjs: (_url, callback) => callback(),
         init_map: () => map, get_map: () => map, destroy_map: () => { destroyed = true; },
         L: {
+            DomEvent: { disableClickPropagation() {}, disableScrollPropagation() {} },
             AwesomeMarkers: { icon: options => ({ options }) },
             LatLng: function (lat, lng) { this.lat = lat; this.lng = lng; },
             marker: (location, options) => ({ location, options, bindPopup(content) { this.popup = content; } }),
@@ -62,53 +63,52 @@ const device = (name, url = '/device/1') => ({
 });
 
 const s = setup();
+const snapshot = devices => ({ devices, observed_at: '2026-09-25T10:00:00Z' });
 const hostileName = '<img src=x onerror=alert(1)>';
-s.requests[0].resolve({ 1: device(hostileName) });
-s.requests[1].resolve({ 1: device(hostileName), 2: device('Unsafe link', 'javascript:alert(1)') });
-assert.equal(s.map.markerCluster.layers.length, 2, 'overlapping groups must deduplicate');
+s.requests[0].resolve(snapshot({ 1: device(hostileName), 2: device('Unsafe link', 'javascript:alert(1)'), 3: { ...device('Missing coordinates'), lat: null, lng: null, site: '<script>alert(1)</script>' } }));
+assert.equal(s.map.markerCluster.layers.length, 2, 'devices without coordinates must not create markers');
 const popup = s.map.markerCluster.layers[0].popup;
 assert.equal(typeof popup, 'object', 'popup must use a DOM element instead of HTML');
-assert.equal(popup.textContent, hostileName);
-assert.equal(popup.href, 'https://nms.example/device/1');
-assert.equal(s.map.markerCluster.layers[1].popup.href, undefined, 'unsafe URL must not be clickable');
+assert.equal(popup.children[0].textContent, hostileName);
+assert.equal(popup.children[0].href, 'https://nms.example/device/1');
+assert.equal(s.map.markerCluster.layers[1].popup.children[0].href, undefined, 'unsafe URL must not be clickable');
 assert.equal(s.fits(), 1);
+assert.ok(s.elements.some(e => e.textContent?.includes('1 without coordinates')));
+assert.ok(s.elements.some(e => e.textContent?.includes('<script>alert(1)</script>')));
+const fit = s.elements.find(e => e.textContent === 'Fit current outages');
+fit.listeners.click();
+assert.equal(s.fits(), 2, 'fit action must fit currently mapped outages');
 const original = s.map.markerCluster.layers;
 s.events.refresh();
-s.requests[2].resolve({ 3: device('Partial data') });
-s.requests[3].reject();
-assert.equal(s.map.markerCluster.layers, original, 'partial failure must preserve the complete snapshot');
-const warning = s.elements.find(element => element.tag === 'div');
+s.requests[1].reject();
+assert.equal(s.map.markerCluster.layers, original, 'failure must preserve the complete snapshot');
+const warning = s.elements.find(element => element.className === 'alert alert-warning');
 assert.equal(warning.hidden, false);
 assert.match(warning.textContent, /previous device data/);
 s.events.refresh();
-s.requests[4].resolve({ 4: device('Recovered') });
-s.requests[5].resolve({});
-assert.equal(s.map.markerCluster.layers[0].popup.textContent, 'Recovered');
+s.requests[2].resolve(snapshot({ 4: device('Recovered') }));
+assert.equal(s.map.markerCluster.layers[0].popup.children[0].textContent, 'Recovered');
 assert.equal(warning.hidden, true);
-assert.equal(s.fits(), 1, 'refresh must preserve pan and zoom');
+assert.equal(s.fits(), 2, 'refresh must preserve pan and zoom');
 s.events.refresh();
 s.events.refresh();
-s.requests[8].resolve({ 5: device('Newest') });
-s.requests[9].resolve({});
-s.requests[6].resolve({ 6: device('Outdated') });
-s.requests[7].resolve({});
-assert.equal(s.map.markerCluster.layers[0].popup.textContent, 'Newest');
+s.requests[4].resolve(snapshot({ 5: device('Newest') }));
+s.requests[3].resolve(snapshot({ 6: device('Outdated') }));
+assert.equal(s.map.markerCluster.layers[0].popup.children[0].textContent, 'Newest');
 s.events.refresh();
 s.events.destroy();
-s.requests[10].resolve({});
-s.requests[11].resolve({});
+s.requests[5].resolve(snapshot({}));
 assert.equal(s.destroyed(), true);
-assert.equal(s.map.markerCluster.layers[0].popup.textContent, 'Newest', 'late response must not render after destroy');
+assert.equal(s.map.markerCluster.layers[0].popup.children[0].textContent, 'Newest', 'late response must not render after destroy');
 
 const initialFailure = setup();
 initialFailure.requests[0].reject();
-initialFailure.requests[1].resolve({});
 assert.equal(initialFailure.map.markerCluster, undefined);
 assert.match(initialFailure.elements[0].textContent, /unavailable/);
 assert.equal(initialFailure.elements[0].hidden, false);
 initialFailure.events.refresh();
-initialFailure.requests[2].resolve({});
-initialFailure.requests[3].resolve({});
+initialFailure.requests[1].resolve(snapshot({}));
 assert.equal(initialFailure.map.markerCluster.layers.length, 0, 'complete empty data can clear markers');
 assert.equal(initialFailure.elements[0].hidden, true);
-console.log('Map regression checks passed: safe popup, merged groups, failure retention, recovery, view preservation, race and destroy guards.');
+assert.ok(initialFailure.elements.some(e => e.textContent === 'No offline devices match the selected filters.'));
+console.log('Map regression checks passed: safe popup/list, coordinate coverage, fit action, failure retention, recovery, view preservation, race and destroy guards.');

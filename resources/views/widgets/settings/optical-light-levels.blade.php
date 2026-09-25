@@ -16,7 +16,7 @@
     ])
 
     <div class="form-group">
-        <label for="sensor_count-{{ $id }}" class="control-label">{{ __('Number of readings to show') }}</label>
+        <label for="sensor_count-{{ $id }}" class="control-label">{{ __('Maximum rows') }}</label>
         <input type="number" step="1" min="1" max="200" class="form-control"
                name="sensor_count" id="sensor_count-{{ $id }}" value="{{ $sensor_count }}">
     </div>
@@ -129,6 +129,8 @@
         </span>
     </div>
 
+    <div class="checkbox"><label><input type="hidden" name="pair_directions" value="0"><input type="checkbox" name="pair_directions" value="1" @checked($pair_directions ?? true)> {{ __('Pair RX and TX by interface and lane') }}</label><span class="help-block">{{ __('Only unique pairs are combined. Ambiguous or unidentified lanes remain separate.') }}</span></div>
+    <div class="checkbox"><label><input type="hidden" name="show_history" value="0"><input type="checkbox" name="show_history" value="1" @checked($show_history ?? true)> {{ __('Show 24-hour optical change') }}</label></div>
     <hr>
 
     @include('widgets.partials.nmsdw-column-fields', [

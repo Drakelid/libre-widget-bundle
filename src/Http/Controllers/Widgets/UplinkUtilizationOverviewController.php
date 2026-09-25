@@ -10,6 +10,7 @@ use Drakelid\NmsDashWidgets\Support\Presentation;
 use Drakelid\NmsDashWidgets\Support\DeviceGroups;
 use Drakelid\NmsDashWidgets\Support\Format;
 use Drakelid\NmsDashWidgets\Support\SafeRegex;
+use Drakelid\NmsDashWidgets\Support\History;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -19,8 +20,8 @@ use Illuminate\View\View;
  *
  * Two things here are easy to get wrong and are covered by unit tests:
  *
- *  1. Utilisation is PEAK based -- max(in, out) / ifSpeed -- not total based like the
- *     top-bandwidth widget. A 1 Gbps link pushing 142 Mbps out reads 14.3%.
+ *  1. Utilisation is PEAK based -- max(in, out) / ifSpeed -- because link capacity
+ *     applies independently to each full-duplex direction.
  *  2. The summary tiles describe the WHOLE matched set, not the rows on screen. The
  *     reference install matches ~1156 uplinks while displaying 20.
  *
@@ -44,6 +45,8 @@ class UplinkUtilizationOverviewController extends BundleWidgetController
         'time_interval' => 15,
         'warning_threshold' => 70,
         'critical_threshold' => 90,
+        'history_enabled' => false,
+        'history_minutes' => 15,
         'show_graphs' => 1,
         'show_device_group' => 1,
 
@@ -69,6 +72,8 @@ class UplinkUtilizationOverviewController extends BundleWidgetController
         $settings['time_interval'] = Cast::clampedInt($settings['time_interval'] ?? 15, 1, 1440, 15);
         $settings['show_graphs'] = Cast::bool($settings['show_graphs'] ?? true, true);
         $settings['show_device_group'] = Cast::bool($settings['show_device_group'] ?? true, true);
+        $settings['history_enabled'] = Cast::bool($settings['history_enabled'] ?? false, false);
+        $settings['history_minutes'] = Cast::clampedInt($settings['history_minutes'] ?? 15, 5, 1440, 15);
 
         $warning = Cast::clampedFloat($settings['warning_threshold'] ?? 70, 1, 100, 70);
         $critical = Cast::clampedFloat($settings['critical_threshold'] ?? 90, 1, 100, 90);
@@ -128,6 +133,7 @@ class UplinkUtilizationOverviewController extends BundleWidgetController
                 'ports.ifSpeed',
                 'ports.ifInOctets_rate',
                 'ports.ifOutOctets_rate',
+                'ports.poll_time',
             ])
             ->where('ports.poll_time', '>', Carbon::now()->subMinutes($settings['time_interval'])->timestamp);
 
@@ -205,10 +211,14 @@ class UplinkUtilizationOverviewController extends BundleWidgetController
 
         foreach ($rows as $index => $row) {
             $rows[$index]['group_names'] = $memberships->get($row['port']->device_id, '');
+            $rows[$index]['history'] = $settings['history_enabled']
+                ? History::portCongestion($row['port'], $settings['warning_threshold'], $settings['history_minutes'])
+                : null;
         }
 
         return view('widgets.uplink-utilization-overview', $settings + $this->shared($settings) + [
             'rows' => $rows,
+            'matched_count' => $stats['matched'],
             'summary' => $this->summarise($stats),
             'group_label' => DeviceGroups::namesFor($user, $groupIds, __('All accessible devices')),
             'effective_regex' => $include->raw(),
@@ -260,6 +270,11 @@ class UplinkUtilizationOverviewController extends BundleWidgetController
 
         return [
             'port' => $port,
+            'observed_at' => $port->poll_time,
+            'remaining_rx' => $speedBps > 0 ? Format::bits(max(0, $speedBps - $inBps)) : __('Unknown'),
+            'remaining_tx' => $speedBps > 0 ? Format::bits(max(0, $speedBps - $outBps)) : __('Unknown'),
+            'rx_utilisation' => Format::percent(Format::utilisation($inBps, $speedBps)),
+            'tx_utilisation' => Format::percent(Format::utilisation($outBps, $speedBps)),
             'in_bps' => $inBps,
             'out_bps' => $outBps,
             'total_bps' => $totalBps,

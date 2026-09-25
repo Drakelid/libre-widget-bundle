@@ -1,11 +1,13 @@
 # LibreNMS Dashboard Widget Bundle
 
-Eleven dashboard widgets for LibreNMS, packaged as a plugin.
+Twelve dashboard widgets for LibreNMS, packaged as a plugin.
 
 These widgets previously lived as hand-placed files inside the LibreNMS tree, with their
 routes added directly to core's `routes/web.php`. The LibreNMS 26.8.1 upgrade overwrote
 that file and silently removed every registration, leaving the widgets installed but
 unreachable. Packaging them as a plugin means upgrades no longer break them.
+
+See [widget enhancements](docs/widget-enhancements.md) for the new controls, data-age labels, filter previews and optional history.
 
 ## Widgets
 
@@ -16,6 +18,7 @@ unreachable. Packaging them as a plugin means upgrades no longer break them.
 | Uplink Utilization Overview | `uplink-utilization-overview` | Regex-matched uplinks ranked by peak utilisation, with summary stats across all matches |
 | Top Device Temperatures | `top-device-temperatures` | Hottest devices by temperature sensor, one row per device |
 | Flapping Devices / Unstable Links | `flapping-devices` | Devices and ports that changed state repeatedly in a lookback window |
+| Offline Devices Map | `offline-devices-map` | Permission-filtered map and synchronized outage list, including devices without coordinates |
 | Recently Added Devices | `recently-added-devices` | Most recently added devices, newest first |
 
 ### ISP additions (1.2.0)
