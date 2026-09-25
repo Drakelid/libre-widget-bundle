@@ -9,6 +9,12 @@
 <script>
     (function () {
         var id = @json(\Drakelid\NmsDashWidgets\Support\Assets::styleElementId());
+        var widgetId = @json($widget_id ?? null);
+        var scrollRegion = widgetId === null ? null : document.getElementById('widget_body_' + widgetId);
+
+        if (scrollRegion) {
+            scrollRegion.classList.add('nmsdw-scroll-region');
+        }
 
         if (document.getElementById(id)) {
             return;
